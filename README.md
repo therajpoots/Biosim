@@ -62,6 +62,24 @@ BSS automatically generates beautiful, diagnostic HTML dashboards with zoomable 
 
 ![Metrics Dashboard Preview](https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/14_metrics_dashboard.png)
 
+### 4. Clean Bio-Signal Waveform Showcase
+BSS includes high-fidelity mathematical models and dynamical ODE systems for 6 core biosignal categories, generating clean, realistic baseline templates:
+
+<table width="100%">
+  <tr>
+    <td width="50%"><b>ECG (McSharry 12-Lead standard projection)</b><br/><img src="https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/03_ecg_12lead.png" width="100%"/></td>
+    <td width="50%"><b>EEG (Delta, Theta, Alpha, Beta, Sleep states)</b><br/><img src="https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/04_eeg_states.png" width="100%"/></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>EMG (MUAP activation firing & pathology library)</b><br/><img src="https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/06_emg_pathologies.png" width="100%"/></td>
+    <td width="50%"><b>PPG (Dual-wavelength & arterial stiffness)</b><br/><img src="https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/08_ppg_signal.png" width="100%"/></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>EDA (Tonic SCL + Phasic SCR sweat responses)</b><br/><img src="https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/09_eda_signal.png" width="100%"/></td>
+    <td width="50%"><b>Respiration (Eupnea, deep, rapid breathing)</b><br/><img src="https://raw.githubusercontent.com/therajpoots/Biosim/main/docs/images/10_resp_patterns.png" width="100%"/></td>
+  </tr>
+</table>
+
 ---
 
 ## 🚀 Key Highlights

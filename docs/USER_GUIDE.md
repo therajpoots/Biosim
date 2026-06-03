@@ -44,6 +44,8 @@ pip install -e ".[io,viz,yaml,dev]"
 ### McSharry 12-Lead Electrocardiogram (ECG)
 Generates ECG cycles using the McSharry ECGSYN dynamical ODE model in 3D VCG dipole coordinates, projected to standard 12-lead grids using the Dower Matrix. Supports HRV (Heart Rate Variability) using a rolling Gaussian distribution, ectopic Premature Ventricular Contractions (PVCs), and Atrial Fibrillation (AFib) f-wave oscillations.
 
+![12-Lead ECG standard grid projection](images/03_ecg_12lead.png)
+
 #### Code Example: 12-Lead ECG with AFib Rhythm
 ```python
 import numpy as np
@@ -83,6 +85,8 @@ Time Vector: 0.00s to 10.00s
 
 ### Resting Brainwaves & Sleep Transients (EEG)
 Simulates resting-state EEG (Delta, Theta, Alpha, Beta, Gamma bands) modeled as bandpass filtered white noise processes overlaid on a $1/f$ pink noise background, spatially correlated using Cholesky factorization of a target sensor covariance matrix. Supports sleep stage transients (K-complexes and sleep spindles) and generalized epileptic tonic-clonic seizures.
+
+![EEG Physiological Brain States](images/04_eeg_states.png)
 
 #### Code Example: Multi-channel EEG during N2 Sleep Stage
 ```python
@@ -128,6 +132,8 @@ Max Amplitude: 184.23 uV
 ### Muscle Activation & Fatigue (EMG)
 Models intramuscular (single-channel needle) and surface (multi-channel HD-EMG) electromyograms. Integrates Motor Unit Action Potential (MUAP) templates firing via Poisson process dynamics. Evaluates motor unit recruitment, physiological tremor, ALS fasciculations, and muscle fatigue (modeled as a rolling down-shift in mean and median frequencies).
 
+![EMG Pathology Library](images/06_emg_pathologies.png)
+
 #### Code Example: EMG Fatigue Simulation
 ```python
 from biosignal_simulator import EMGGenerator, EMGConfig, SignalMixer
@@ -165,6 +171,8 @@ EMG Type: surface | Pathology: parkinsons_tremor
 ### Cardiovascular Photoplethysmography (PPG)
 Generates PPG waveforms (IR and Red channels) representing blood volume changes during cardiac cycles. Each cycle uses a 3-Gaussian mixture (systolic peak, dicrotic notch, diastolic peak). Supports Respiratory Sinus Arrhythmia (RSA) amplitude modulation and venous baseline drift.
 
+![PPG Waveform with Respiratory Modulation](images/08_ppg_signal.png)
+
 #### Code Example: PPG with Respiration Modulation
 ```python
 from biosignal_simulator import PPGGenerator, PPGConfig, SignalMixer
@@ -199,6 +207,10 @@ Signal Type: ppg
 ### Electrodermal Activity (EDA) & Respiration (Resp)
 * **EDA**: Decomposes sweat response into a slow-moving Tonic Skin Conductance Level (SCL, random walk baseline) and fast Phasic Skin Conductance Responses (SCR, triggered by Poisson events).
 * **Resp**: Models respiratory curves with asymmetric inhalation/exhalation durations and support for pathological patterns (Cheyne-Stokes waxing/waning, Biot's apneas, Kussmaul deep hyperventilation).
+
+![EDA Signal Conductance (Tonic SCL + Phasic SCR)](images/09_eda_signal.png)
+
+![Respiration Signal Breathing Patterns](images/10_resp_patterns.png)
 
 #### Code Example: Breathing and Skin Conductance Setup
 ```python
@@ -246,6 +258,8 @@ BSS contains 10 highly realistic physical noise engines. Every noise model suppo
 | `QuantizationNoise` | ADC resolution constraints + dither | `bit_depth`, `dither_mode` |
 | `WearableNoise` | Sensor detachment bounce + Light leaks | `detachment_rate`, `packet_loss_rate` |
 
+![Noise Model Gallery (7 Physical Artifacts)](images/11_noise_gallery.png)
+
 ---
 
 ## 🎛️ 3. Composer, Mixers, & Schedulers (`composer/`)
@@ -286,6 +300,8 @@ print(f"Noise Error RMS: {mixed_record.metadata['diagnostics']['error_rms']:.4f}
 print(f"Calculated SNR: {mixed_record.snr_db:.2f} dB")
 ```
 
+![SignalMixer Pipeline (Clean → Noise → Mixed)](images/13_mixer_pipeline.png)
+
 #### Expected Console Output
 ```text
 --- Composited Signal Output ---
@@ -325,6 +341,8 @@ with tempfile.TemporaryDirectory() as tmpdir:
     print(f"Signals match exactly (clean): {imported_record.clean.shape == record.clean.shape}")
 ```
 
+![Export Format Size Comparison](images/16_io_formats.png)
+
 #### Expected Console Output
 ```text
 File exported to EDF: C:\Users\User\AppData\Local\Temp\tmp...\subject_ecg.edf (15616 bytes)
@@ -357,6 +375,8 @@ print(f"Segmental SNR: {np.mean(seg_snr):.2f} dB")
 print(f"Percent Residual Difference (PRD): {prd_val:.2f}%")
 print(f"Structural Similarity (SSIM 1D): {ssim_val:.4f}")
 ```
+
+![Signal Quality Metrics Dashboard](images/14_metrics_dashboard.png)
 
 #### Expected Console Output
 ```text
