@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>BioSignal Quality Validation Report</title>
+    <style>
+        body {
+            font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+            background-color: #0d0f12;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(25, 30, 40, 0.65);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(12px);
+            padding: 40px;
+        }
+        h1 {
+            color: #ffffff;
+            font-size: 28px;
+            margin-top: 0;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 15px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+        }
+        .badge.valid {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+        .badge.invalid {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+        .section-title {
+            color: #6366f1;
+            font-size: 18px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        .warnings-box {
+            background: rgba(245, 158, 11, 0.05);
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 30px;
+        }
+        .warnings-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .warnings-box li {
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        th {
+            background-color: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .meta-item {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .meta-item span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .meta-item strong {
+            font-size: 16px;
+            color: #cbd5e1;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #475569;
+            margin-top: 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BioSignal Simulator — Validation & Integrity Report</h1>
+        
+        <div class="badge valid">PASSED (Physiologically Valid)</div>
+        
+        <div class="section-title">Signal Specifications</div>
+        <div class="meta-grid">
+            <div class="meta-item">
+                <span>Signal Type</span>
+                <strong>EDA</strong>
+            </div>
+            <div class="meta-item">
+                <span>Sampling Rate</span>
+                <strong>250.0 Hz</strong>
+            </div>
+            <div class="meta-item">
+                <span>Duration</span>
+                <strong>2.00 seconds</strong>
+            </div>
+            <div class="meta-item">
+                <span>Total Samples</span>
+                <strong>500 points</strong>
+            </div>
+        </div>
+        
+        <div class="section-title">Active Validation Warnings</div>
+        <div class="warnings-box">
+            <ul>
+                <li>No active warnings. Signal is clean and physiologically coherent.</li>
+            </ul>
+        </div>
+        
+        <div class="section-title">Extracted Physiological & Quality Metrics</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric Name</th>
+                    <th>Measured Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>clipping_ratio</strong></td><td>0.0000</td></tr>
+<tr><td><strong>flatline_segments</strong></td><td>[]</td></tr>
+<tr><td><strong>powerline_interference_ratio</strong></td><td>0.0000</td></tr>
+<tr><td><strong>motion_bursts_count</strong></td><td>0</td></tr>
+<tr><td><strong>eda_mean_microsiemens</strong></td><td>10.0100</td></tr>
+<tr><td><strong>eda_range</strong></td><td>5.1687</td></tr>
+
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            Generated by BioSignal Simulator Validation Engine &bull; 2026-06-03 11:47:46 UTC
+        </div>
+    </div>
+</body>
+</html>

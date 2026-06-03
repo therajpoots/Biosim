@@ -31,6 +31,8 @@ _trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
 
 from biosignal_simulator.core.record import SignalRecord
 from biosignal_simulator.metrics.spectral import compute_psd
+from scipy import signal as sp_signal
+
 
 def _check_matplotlib():
     """Verify that matplotlib is installed before plotting."""

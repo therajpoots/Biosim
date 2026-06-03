@@ -33,7 +33,8 @@ from biosignal_simulator.utils.visualization import (
     plot_eeg_spectrogram_and_bands,
     plot_emg_fatigue_indicators,
     plot_eda_decomposition,
-    generate_interactive_html_dashboard
+    generate_interactive_html_dashboard,
+    _check_matplotlib
 )
 
 ASCII_BANNER = r"""
@@ -206,7 +207,7 @@ class CliCommandSuite:
                     if n_type in ['pink', 'brown', 'blue', 'violet']:
                         model = model_cls()
                     else:
-                        n_cfg = config_cls(fs=args.fs, duration_s=args.duration)
+                        n_cfg = config_cls()
                         model = model_cls(n_cfg)
                     noise_models.append(model)
                 except Exception as e:
@@ -485,7 +486,7 @@ class CliCommandSuite:
             sys.exit(1)
             
         # Noise
-        noise_model = bss.GaussianNoise(bss.GaussianNoiseConfig(fs=args.fs, duration_s=args.duration))
+        noise_model = bss.GaussianNoise(bss.GaussianNoiseConfig())
         
         for val in sweep_values:
             print(f"  Running simulation step for {param_name} = {val}...")
@@ -600,29 +601,29 @@ class CliCommandSuite:
             if add:
                 # Instantiate configurations
                 if n_t == "gaussian":
-                    n_cfg = bss.GaussianNoiseConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.GaussianNoiseConfig()
                     noise_models.append(bss.GaussianNoise(n_cfg))
                 elif n_t == "colored":
                     exponent = prompt_user("Select spectral decay exponent (1=pink, 2=brownian)", 1.0, float)
-                    n_cfg = bss.ColoredNoiseConfig(fs=fs, duration_s=duration, exponent=exponent)
+                    n_cfg = bss.ColoredNoiseConfig(exponent=exponent)
                     noise_models.append(bss.ColoredNoise(n_cfg))
                 elif n_t == "baseline":
-                    n_cfg = bss.BaselineWanderConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.BaselineWanderConfig()
                     noise_models.append(bss.BaselineWander(n_cfg))
                 elif n_t == "powerline":
-                    n_cfg = bss.PowerlineNoiseConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.PowerlineNoiseConfig()
                     noise_models.append(bss.PowerlineNoise(n_cfg))
                 elif n_t == "motion":
-                    n_cfg = bss.MotionArtifactConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.MotionArtifactConfig()
                     noise_models.append(bss.MotionArtifact(n_cfg))
                 elif n_t == "electrode":
-                    n_cfg = bss.ElectrodeNoiseConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.ElectrodeNoiseConfig()
                     noise_models.append(bss.ElectrodeNoise(n_cfg))
                 elif n_t == "emg_artifact":
-                    n_cfg = bss.EMGArtifactConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.EMGArtifactConfig()
                     noise_models.append(bss.EMGArtifact(n_cfg))
                 elif n_t == "sensor_detachment":
-                    n_cfg = bss.SensorDetachmentConfig(fs=fs, duration_s=duration)
+                    n_cfg = bss.SensorDetachmentConfig()
                     noise_models.append(bss.SensorDetachmentNoise(n_cfg))
 
         # SNR
@@ -641,22 +642,55 @@ class CliCommandSuite:
         try:
             # Setup signal generator
             if sig_type == 'ecg':
-                sig_config = bss.ECGConfig(fs=fs, duration_s=duration, **sig_params)
+                rhythm_type = 'pvc' if sig_params.get('add_pvc') else 'normal'
+                sig_config = bss.ECGConfig(
+                    fs=fs,
+                    duration_s=duration,
+                    heart_rate=sig_params.get('heart_rate', 75.0),
+                    rhythm_type=rhythm_type
+                )
                 generator = bss.ECGGenerator(sig_config)
             elif sig_type == 'eeg':
-                sig_config = bss.EEGConfig(fs=fs, duration_s=duration, **sig_params)
+                alpha_val = sig_params.get('alpha_power', 0.2)
+                band_powers = {'delta': 0.2, 'theta': 0.3, 'alpha': alpha_val, 'beta': 0.5, 'gamma': 0.1}
+                state = 'epileptiform_spikes' if sig_params.get('inject_seizure') else 'relaxed'
+                sig_config = bss.EEGConfig(
+                    fs=fs,
+                    duration_s=duration,
+                    band_powers=band_powers,
+                    state=state
+                )
                 generator = bss.EEGGenerator(sig_config)
             elif sig_type == 'emg':
-                sig_config = bss.EMGConfig(fs=fs, duration_s=duration, **sig_params)
+                pathology = 'fatigue' if sig_params.get('fatigue_factor', 0.0) > 0.0 else 'normal'
+                sig_config = bss.EMGConfig(
+                    fs=fs,
+                    duration_s=duration,
+                    pathology=pathology
+                )
                 generator = bss.EMGGenerator(sig_config)
             elif sig_type == 'ppg':
-                sig_config = bss.PPGConfig(fs=fs, duration_s=duration, **sig_params)
+                sig_config = bss.PPGConfig(
+                    fs=fs,
+                    duration_s=duration,
+                    heart_rate=sig_params.get('heart_rate', 70.0)
+                )
                 generator = bss.PPGGenerator(sig_config)
             elif sig_type == 'eda':
-                sig_config = bss.EDAConfig(fs=fs, duration_s=duration, **sig_params)
+                event_rate_hz = sig_params.get('scr_frequency', 3.0) / 60.0
+                sig_config = bss.EDAConfig(
+                    fs=fs,
+                    duration_s=duration,
+                    event_rate_hz=event_rate_hz
+                )
                 generator = bss.EDAGenerator(sig_config)
             elif sig_type == 'resp':
-                sig_config = bss.RespConfig(fs=fs, duration_s=duration, **sig_params)
+                resp_rate_hz = sig_params.get('breath_rate', 15.0) / 60.0
+                sig_config = bss.RespConfig(
+                    fs=fs,
+                    duration_s=duration,
+                    resp_rate_hz=resp_rate_hz
+                )
                 generator = bss.RespGenerator(sig_config)
                 
             mixer = bss.SignalMixer(
