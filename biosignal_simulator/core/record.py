@@ -125,6 +125,7 @@ class SignalRecord:
     signal_params: Dict[str, Any] = field(default_factory=dict)
     noise_params: Dict[str, Any] = field(default_factory=dict)
     snr_db: Optional[float] = None
+    target_snr_db: Optional[Any] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     quality_flags: Dict[str, bool] = field(default_factory=dict)
     quality_metrics: Dict[str, Any] = field(default_factory=dict)

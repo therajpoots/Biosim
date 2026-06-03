@@ -297,6 +297,7 @@ class SignalMixer:
             signal_params=signal_params,
             noise_params=noise_params,
             snr_db=achieved_snr,
+            target_snr_db=self.target_snr_db,
             metadata=self.metadata
         )
 
