@@ -118,3 +118,7 @@ Desktop.ini
 !docs/images/
 !docs/images/*.png
 !docs/images/*.html
+
+# Release notes
+release_notes.md
+
