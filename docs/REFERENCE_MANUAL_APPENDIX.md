@@ -1237,7 +1237,13 @@ Any number. The SNR controller normalizes the sum of all noise sources to the ta
 
 ## Appendix E — Changelog & Version History
 
-### v0.1.1 (Current Release)
+### v0.1.2 (Current Release)
+- **Visualization NameErrors**: Added missing `scipy.signal` imports in the visualization engine.
+- **CLI Fixes & Wizard Enhancements**: Resolved NameErrors in the plotting command routing, resolved TypeErrors on unexpected config arguments, and mapped the interactive wizard prompts to actual config keys.
+- **Expanded Test Coverage**: Created comprehensive new CLI and visualization test suites, raising `cli.py` coverage to 68% and `visualization.py` coverage to 94% with 1,443 total passing tests.
+- **Documentation Updates**: Updated guides to correct CLI binary name `biosignal-sim` and document interactive plotting/dashboard features.
+
+### v0.1.1
 - **README & Link Fixes**: Corrected relative links to documents and images to use absolute GitHub paths, resolving 404 errors on PyPI registry pages.
 - **__version__ Integration**: Added package-level `__version__` property to `biosignal_simulator`.
 - **Interactive Google Colab Demo**: Created `demo.ipynb` notebook integration.

@@ -86,5 +86,5 @@ try:
     from importlib.metadata import version as _version
     __version__ = _version("biosignal-simulator")
 except Exception:
-    __version__ = "0.1.1"
+    __version__ = "0.1.2"
 
