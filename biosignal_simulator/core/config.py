@@ -319,6 +319,7 @@ class PPGConfig:
     dicrotic_fraction: float = 0.45
     resp_modulation: float = 0.15
     resp_rate: float = 0.25
+    derivative: str = 'none'
     seed: Optional[int] = None
 
     def __post_init__(self):
@@ -338,6 +339,10 @@ class PPGConfig:
             errors.append(f"resp_modulation must be in range [0.0, 0.8], got {self.resp_modulation}")
         if self.resp_rate <= 0.0 or self.resp_rate > 2.0:
             errors.append(f"resp_rate must be in range (0.0, 2.0] Hz, got {self.resp_rate}")
+        
+        allowed_derivs = {'none', 'first', 'second', 'vpg', 'apg'}
+        if self.derivative is not None and str(self.derivative).lower().strip() not in allowed_derivs:
+            errors.append(f"derivative must be one of {allowed_derivs}, got {self.derivative}")
 
         if errors:
             raise ValueError(f"PPGConfig Validation Errors:\n" + "\n".join(errors))

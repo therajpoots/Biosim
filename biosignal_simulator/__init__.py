@@ -31,7 +31,14 @@ from biosignal_simulator.signals import (
     EMGGenerator,
     PPGGenerator,
     EDAGenerator,
-    RespGenerator
+    RespGenerator,
+    make_ppg_normal,
+    make_ppg_tachycardia,
+    make_ppg_bradycardia,
+    make_vpg,
+    make_apg,
+    make_ppg_motion_artifact,
+    make_ppg_light_leakage
 )
 from biosignal_simulator.noise import (
     GaussianNoise,

@@ -1346,3 +1346,49 @@ def test_resp_rate_0_6_pattern_kussmaul():
     assert len(resp) == 100
     assert not np.any(np.isnan(resp))
     assert np.std(resp) > 1e-4
+
+
+def test_ppg_derivatives_option():
+    """Verify that PPGConfig derivative parameter correctly alters outputs."""
+    # VPG
+    cfg_vpg = PPGConfig(fs=100.0, duration_s=5.0, derivative='vpg', seed=42)
+    vpg = PPGGenerator(cfg_vpg).generate()
+    assert len(vpg) == 500
+    assert not np.any(np.isnan(vpg))
+    assert np.isclose(np.std(vpg), 1.0, atol=1e-2)
+
+    # APG
+    cfg_apg = PPGConfig(fs=100.0, duration_s=5.0, derivative='apg', seed=42)
+    apg = PPGGenerator(cfg_apg).generate()
+    assert len(apg) == 500
+    assert not np.any(np.isnan(apg))
+    assert np.isclose(np.std(apg), 1.0, atol=1e-2)
+
+    # Invalid option should raise ValueError
+    with pytest.raises(ValueError):
+        PPGConfig(fs=100.0, derivative='invalid_derivative')
+
+
+def test_ppg_factory_functions():
+    """Verify the PPG and derivative factory functions."""
+    from biosignal_simulator import make_vpg, make_apg, make_ppg_motion_artifact, make_ppg_light_leakage
+
+    # make_vpg
+    vpg = make_vpg(duration_s=4.0, fs=100.0, seed=42)
+    assert len(vpg) == 400
+    assert not np.any(np.isnan(vpg))
+
+    # make_apg
+    apg = make_apg(duration_s=4.0, fs=100.0, seed=42)
+    assert len(apg) == 400
+    assert not np.any(np.isnan(apg))
+
+    # make_ppg_motion_artifact
+    motion_ppg = make_ppg_motion_artifact(duration_s=4.0, fs=100.0, snr_db=10.0, seed=42)
+    assert len(motion_ppg) == 400
+    assert not np.any(np.isnan(motion_ppg))
+
+    # make_ppg_light_leakage
+    light_ppg = make_ppg_light_leakage(duration_s=4.0, fs=100.0, snr_db=10.0, seed=42)
+    assert len(light_ppg) == 400
+    assert not np.any(np.isnan(light_ppg))

@@ -157,10 +157,11 @@ def ppg_diastolic_peak(
     t_local: np.ndarray,
     dia_time: float,
     amplitude: float,
-    sigma: float,
+    rise_sigma: float,
+    fall_sigma: Optional[float] = None,
 ) -> np.ndarray:
     """
-    Generate the diastolic peak (reflected pressure wave).
+    Generate the diastolic peak (reflected pressure wave) with optional asymmetry.
 
     The diastolic hump represents the return of the pressure pulse wave reflected
     from the periphery. It is more prominent in young, compliant arteries and
@@ -174,17 +175,30 @@ def ppg_diastolic_peak(
         Time of the diastolic peak.
     amplitude : float
         Diastolic peak amplitude.
-    sigma : float
-        Width of the diastolic peak.
+    rise_sigma : float
+        Width of the rising limb (standard deviation, seconds).
+    fall_sigma : float, optional
+        Width of the falling limb (standard deviation, seconds).
+        If None, symmetric Gaussian using rise_sigma is generated.
 
     Returns
     -------
     np.ndarray
         Diastolic peak waveform.
     """
-    return amplitude * np.exp(
-        -0.5 * ((t_local - dia_time) / max(sigma, 1e-9)) ** 2
+    if fall_sigma is None:
+        fall_sigma = rise_sigma
+        
+    result = np.zeros_like(t_local, dtype=float)
+    pre_mask = t_local < dia_time
+    post_mask = ~pre_mask
+    result[pre_mask] = amplitude * np.exp(
+        -0.5 * ((t_local[pre_mask] - dia_time) / max(rise_sigma, 1e-9)) ** 2
     )
+    result[post_mask] = amplitude * np.exp(
+        -0.5 * ((t_local[post_mask] - dia_time) / max(fall_sigma, 1e-9)) ** 2
+    )
+    return result
 
 
 def compute_beat_ppg_waveform(
@@ -196,6 +210,10 @@ def compute_beat_ppg_waveform(
 ) -> np.ndarray:
     """
     Compute the PPG waveform for a single cardiac beat.
+
+    Uses a physiologically realistic dual-component additive model summing
+    an asymmetric systolic peak and an asymmetric diastolic reflection peak. 
+    It guarantees continuity by subtracting a linear boundary offset alignment.
 
     Parameters
     ----------
@@ -218,32 +236,33 @@ def compute_beat_ppg_waveform(
     """
     T = rr_interval
 
-    # Peak timings (relative to cycle start)
+    # Systolic wave parameters
     sys_peak = config.systolic_fraction * T
-    # Dicrotic notch shifts earlier with arterial stiffness
-    dic_frac = config.dicrotic_fraction - 0.07 * stiffness_factor
-    dic_frac = np.clip(dic_frac, config.systolic_fraction + 0.05, 0.75)
-    notch_time = dic_frac * T
-    dia_time = (dic_frac + 0.10 + 0.05 * (1.0 - stiffness_factor)) * T
-    dia_time = np.clip(dia_time, notch_time + 0.02 * T, 0.92 * T)
+    sys_rise = 0.25 * config.systolic_fraction * T
+    sys_fall = 0.325 * config.systolic_fraction * T
 
-    # Widths (scale with cycle duration)
-    rise_sigma = 0.04 * T
-    fall_sigma = 0.08 * T
-    notch_sigma = 0.025 * T
-    dia_sigma = 0.07 * T
+    # Diastolic wave parameters (reflected wave)
+    # With stiffness: reflected wave arrives earlier and has a larger amplitude
+    dia_time = (config.dicrotic_fraction - 0.10 * stiffness_factor) * T
+    dia_amp = (0.42 + 0.08 * stiffness_factor) * 0.95 * amplitude_scale
+    dia_rise = 0.055 * T
+    dia_fall = 0.16 * T  # slow decay for the tail
 
-    # Amplitudes
-    # With stiffness: diastolic amplitude increases (reflected wave arrives earlier, larger)
-    dia_amp_base = 0.22 + 0.12 * stiffness_factor
+    # Generate waves
+    sys_wave = ppg_systolic_peak(t_local, sys_peak, amplitude_scale, sys_rise, sys_fall)
+    dia_wave = ppg_diastolic_peak(t_local, dia_time, dia_amp, dia_rise, dia_fall)
 
-    sys_wave = ppg_systolic_peak(
-        t_local, sys_peak, amplitude_scale, rise_sigma, fall_sigma
-    )
-    notch_wave = ppg_dicrotic_notch(t_local, notch_time, 0.14 * amplitude_scale, notch_sigma)
-    dia_wave = ppg_diastolic_peak(t_local, dia_time, dia_amp_base * amplitude_scale, dia_sigma)
+    # Compute boundary values at 0 and T to subtract boundary offset and align
+    v0_sys = ppg_systolic_peak(np.array([0.0]), sys_peak, amplitude_scale, sys_rise, sys_fall)[0]
+    v0_dia = ppg_diastolic_peak(np.array([0.0]), dia_time, dia_amp, dia_rise, dia_fall)[0]
+    v0 = v0_sys + v0_dia
 
-    return sys_wave + notch_wave + dia_wave
+    v1_sys = ppg_systolic_peak(np.array([T]), sys_peak, amplitude_scale, sys_rise, sys_fall)[0]
+    v1_dia = ppg_diastolic_peak(np.array([T]), dia_time, dia_amp, dia_rise, dia_fall)[0]
+    v1 = v1_sys + v1_dia
+
+    correction = v0 + (v1 - v0) * (t_local / T)
+    return sys_wave + dia_wave - correction
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -510,7 +529,20 @@ class PPGGenerator(BaseSignal):
 
         # Center and normalize
         ppg_signal -= np.mean(ppg_signal)
-        return normalize_to_rms(ppg_signal, 1.0)
+        ppg_signal = normalize_to_rms(ppg_signal, 1.0)
+
+        # Apply derivative if specified
+        derivative = getattr(config, 'derivative', 'none')
+        if derivative is not None:
+            deriv_str = str(derivative).lower().strip()
+            if deriv_str in ('first', 'vpg'):
+                ppg_signal = compute_vpg(ppg_signal, fs)
+                ppg_signal = normalize_to_rms(ppg_signal, 1.0)
+            elif deriv_str in ('second', 'apg'):
+                ppg_signal = compute_apg(ppg_signal, fs)
+                ppg_signal = normalize_to_rms(ppg_signal, 1.0)
+
+        return ppg_signal
 
     def generate_fast(self) -> np.ndarray:
         """
@@ -574,7 +606,20 @@ class PPGGenerator(BaseSignal):
 
         ppg_signal = ppg_raw * resp_envelope + resp_drift
         ppg_signal -= np.mean(ppg_signal)
-        return normalize_to_rms(ppg_signal, 1.0)
+        ppg_signal = normalize_to_rms(ppg_signal, 1.0)
+
+        # Apply derivative if specified
+        derivative = getattr(config, 'derivative', 'none')
+        if derivative is not None:
+            deriv_str = str(derivative).lower().strip()
+            if deriv_str in ('first', 'vpg'):
+                ppg_signal = compute_vpg(ppg_signal, fs)
+                ppg_signal = normalize_to_rms(ppg_signal, 1.0)
+            elif deriv_str in ('second', 'apg'):
+                ppg_signal = compute_apg(ppg_signal, fs)
+                ppg_signal = normalize_to_rms(ppg_signal, 1.0)
+
+        return ppg_signal
 
     def get_vpg(self) -> np.ndarray:
         """
@@ -771,3 +816,161 @@ def extract_respiratory_rate_from_ppg(ppg: np.ndarray, fs: float) -> float:
     peak_idx = np.argmax(resp_spectrum)
 
     return float(resp_freqs[peak_idx])
+
+
+def make_vpg(
+    duration_s: float = 30.0,
+    heart_rate: float = 72.0,
+    fs: float = 125.0,
+    seed: Optional[int] = None,
+) -> np.ndarray:
+    """
+    Generate the first derivative (Velocity Plethysmogram, VPG) of a normal PPG signal.
+
+    Parameters
+    ----------
+    duration_s : float
+        Duration of the signal in seconds.
+    heart_rate : float
+        Heart rate in bpm.
+    fs : float
+        Sampling frequency in Hz.
+    seed : int, optional
+        Random seed.
+
+    Returns
+    -------
+    np.ndarray
+        First derivative (VPG) of the PPG signal.
+    """
+    config = PPGConfig(
+        fs=fs, duration_s=duration_s, heart_rate=heart_rate, derivative='vpg', seed=seed,
+    )
+    return PPGGenerator(config).generate_fast()
+
+
+def make_apg(
+    duration_s: float = 30.0,
+    heart_rate: float = 72.0,
+    fs: float = 125.0,
+    seed: Optional[int] = None,
+) -> np.ndarray:
+    """
+    Generate the second derivative (Acceleration Plethysmogram, APG) of a normal PPG signal.
+
+    Parameters
+    ----------
+    duration_s : float
+        Duration of the signal in seconds.
+    heart_rate : float
+        Heart rate in bpm.
+    fs : float
+        Sampling frequency in Hz.
+    seed : int, optional
+        Random seed.
+
+    Returns
+    -------
+    np.ndarray
+        Second derivative (APG) of the PPG signal.
+    """
+    config = PPGConfig(
+        fs=fs, duration_s=duration_s, heart_rate=heart_rate, derivative='apg', seed=seed,
+    )
+    return PPGGenerator(config).generate_fast()
+
+
+def make_ppg_motion_artifact(
+    duration_s: float = 30.0,
+    heart_rate: float = 72.0,
+    fs: float = 125.0,
+    snr_db: float = 12.0,
+    seed: Optional[int] = None,
+) -> np.ndarray:
+    """
+    Generate a PPG signal contaminated with motion artifact noise.
+
+    Parameters
+    ----------
+    duration_s : float
+        Duration.
+    heart_rate : float
+        Heart rate.
+    fs : float
+        Sampling frequency.
+    snr_db : float
+        Target Signal-to-Noise Ratio in dB.
+    seed : int, optional
+        Random seed.
+
+    Returns
+    -------
+    np.ndarray
+        Noisy PPG signal contaminated with motion artifact.
+    """
+    from biosignal_simulator.noise.motion import MotionArtifact
+    from biosignal_simulator.core.config import MotionArtifactConfig
+    from biosignal_simulator.composer.mixer import SignalMixer
+
+    config = PPGConfig(fs=fs, duration_s=duration_s, heart_rate=heart_rate, seed=seed)
+    gen = PPGGenerator(config)
+
+    noise_cfg = MotionArtifactConfig(
+        lf_amplitude=0.3,
+        enable_lf=True,
+        enable_impacts=True,
+        impact_amplitude=1.5,
+        impact_decay_s=0.2,
+        seed=seed
+    )
+    motion_noise = MotionArtifact(noise_cfg)
+
+    mixer = SignalMixer(signal_generator=gen, noise_models=[motion_noise], target_snr_db=snr_db)
+    return mixer.mix().noisy
+
+
+def make_ppg_light_leakage(
+    duration_s: float = 30.0,
+    heart_rate: float = 72.0,
+    fs: float = 125.0,
+    snr_db: float = 12.0,
+    seed: Optional[int] = None,
+) -> np.ndarray:
+    """
+    Generate a PPG signal contaminated with ambient light leakage noise.
+
+    Parameters
+    ----------
+    duration_s : float
+        Duration.
+    heart_rate : float
+        Heart rate.
+    fs : float
+        Sampling frequency.
+    snr_db : float
+        Target SNR in dB.
+    seed : int, optional
+        Random seed.
+
+    Returns
+    -------
+    np.ndarray
+        Noisy PPG signal contaminated with light leakage.
+    """
+    from biosignal_simulator.noise.wearable import LightLeakageNoise
+    from biosignal_simulator.core.config import LightLeakageConfig
+    from biosignal_simulator.composer.mixer import SignalMixer
+
+    config = PPGConfig(fs=fs, duration_s=duration_s, heart_rate=heart_rate, seed=seed)
+    gen = PPGGenerator(config)
+
+    noise_cfg = LightLeakageConfig(
+        leakage_amplitude=0.2,
+        modulation_frequency_hz=0.25,
+        f_line_hz=50.0,
+        seed=seed
+    )
+    light_noise = LightLeakageNoise(noise_cfg)
+
+    mixer = SignalMixer(signal_generator=gen, noise_models=[light_noise], target_snr_db=snr_db)
+    return mixer.mix().noisy
