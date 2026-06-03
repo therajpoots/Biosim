@@ -187,7 +187,8 @@ class SignalRecord:
         self._metadata_obj = SignalRecordMetadata(
             signal_type=self.signal_type,
             fs=self.fs,
-            signal_duration_s=float(self.t[-1]) if n_samples > 1 else 0.0,
+            # B-15 FIX: use n_samples/fs (true duration), not t[-1] (last sample time)
+            signal_duration_s=float(n_samples) / self.fs if n_samples > 0 else 0.0,
             n_channels=self._n_channels,
             n_samples=n_samples,
             user_notes=str(self.metadata.get("notes", ""))
@@ -318,16 +319,29 @@ class SignalRecord:
             return flags
             
         # Clipping (saturation) detection
-        max_val = np.max(self.noisy)
-        min_val = np.min(self.noisy)
+        # B-09 FIX: Use consecutive-sample flatness (>=3 samples in a row at extrema)
+        # instead of raw proximity to max/min, to avoid false positives on periodic signals.
+        # Flatten to 1D for the diff/consecutive checks (works for 1D and 2D signals alike).
+        noisy_flat = self.noisy.ravel()
+        max_val = float(np.max(noisy_flat))
+        min_val = float(np.min(noisy_flat))
         
-        clip_tol = 1e-9
-        max_count = np.sum(np.abs(self.noisy - max_val) < clip_tol)
-        min_count = np.sum(np.abs(self.noisy - min_val) < clip_tol)
-        total_pts = self.noisy.size
-        
-        if (max_count > 0.001 * total_pts or min_count > 0.001 * total_pts) and (max_val - min_val > 1e-3):
-            flags["is_clipped"] = True
+        if max_val - min_val > 1e-3:
+            tol = 1e-4 * (max_val - min_val)
+            diffs = np.abs(np.diff(noisy_flat))
+            is_flat = diffs < 1e-10
+            # Consecutive flatness: at least 3 flat steps in a row
+            has_consecutive_flat = is_flat[:-1] & is_flat[1:]
+            flat_runs = np.zeros(len(noisy_flat), dtype=bool)
+            flat_runs[:-2] |= has_consecutive_flat
+            flat_runs[1:-1] |= has_consecutive_flat
+            flat_runs[2:] |= has_consecutive_flat
+            
+            top_clip = np.sum((noisy_flat >= max_val - tol) & flat_runs)
+            bot_clip = np.sum((noisy_flat <= min_val + tol) & flat_runs)
+            total_pts = noisy_flat.size
+            if top_clip > 0.001 * total_pts or bot_clip > 0.001 * total_pts:
+                flags["is_clipped"] = True
             
         # DC offset detection
         mean_val = np.mean(self.noisy)

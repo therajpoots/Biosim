@@ -101,7 +101,9 @@ class SNRController:
                 if p_noise_raw <= 1e-15:
                     return raw_noise
                     
-                p_noise_target = p_signal / (10.0 ** (self.target_snr_db / 10.0))
+                # B-10 FIX: clamp noise target to prevent underflow at extreme SNR values
+                _MIN_NOISE_POWER = 1e-30
+                p_noise_target = max(p_signal / (10.0 ** (self.target_snr_db / 10.0)), _MIN_NOISE_POWER)
                 scale = np.sqrt(p_noise_target / p_noise_raw)
                 noise = raw_noise * scale
                 

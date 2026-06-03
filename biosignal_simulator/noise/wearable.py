@@ -141,9 +141,12 @@ class SensorDetachmentNoise(BaseNoiseModel):
         
         if signal.ndim == 2:
             n_ch = signal.shape[0]
-            for c in range(n_ch):
-                if np.any(mask_det):
-                    t_rel = t[mask_det] - det_t
+            if np.any(mask_det):
+                t_rel = t[mask_det] - det_t
+                n_det = len(t_rel)
+                # B-13 FIX: draw all channel thermal noise at once for independence
+                thermal_all = self.rng.normal(0.0, noise_lv * 1e-3, size=(n_ch, n_det))
+                for c in range(n_ch):
                     # Suppress original signal
                     modified[c, mask_det] = 0.0
                     
@@ -153,9 +156,8 @@ class SensorDetachmentNoise(BaseNoiseModel):
                     else:
                         modified[c, mask_det] += trans_amp
                         
-                    # Apply high-impedance thermal flatline
-                    thermal = self.rng.normal(0.0, noise_lv * 1e-3, size=len(t_rel))
-                    modified[c, mask_det] += thermal
+                    # Apply high-impedance thermal flatline (independent per channel)
+                    modified[c, mask_det] += thermal_all[c]
         else:
             if np.any(mask_det):
                 t_rel = t[mask_det] - det_t
@@ -241,28 +243,27 @@ class ElectrodeDisplacementNoise(BaseNoiseModel):
         # Base contact noise standard deviation
         base_noise_std = 0.05
         
-        for idx in range(n_samples):
-            curr_t = t[idx]
-            
-            # Determine cumulative offset and current noise level at this timestamp
-            mask = curr_t >= s_times
-            shift = np.sum(s_amps[mask]) if np.any(mask) else 0.0
-            
-            # Incremental thermal noise multiplier due to loose contact
-            noise_multiplier = np.sum(s_inc[mask]) if np.any(mask) else 0.0
-            current_noise_std = base_noise_std * (1.0 + noise_multiplier)
-            
-            # Add baseline shift and contact thermal noise
-            noise[idx] = shift + self.rng.normal(0.0, current_noise_std)
-            
-            # 3. Add short high-frequency frictional burst pops at the moment of shift
-            # Each burst lasts ~0.3 seconds decaying exponentially
-            for ev_t in s_times:
-                t_diff = curr_t - ev_t
-                if 0.0 <= t_diff < 0.3:
-                    burst_amp = 0.8
-                    decaying_burst = burst_amp * np.sin(2.0 * np.pi * self.burst_frequency_hz * curr_t) * np.exp(-t_diff / 0.05)
-                    noise[idx] += decaying_burst
+        # --- B-01 FIX: fully vectorised — was O(N * E) Python loop ---
+        
+        # 1. Compute cumulative DC offset and noise multiplier at every sample
+        #    using searchsorted instead of per-sample masking.
+        insert_pos = np.searchsorted(s_times, t, side='right')  # how many events have elapsed
+        cumulative_shift = np.concatenate([[0.0], np.cumsum(s_amps)])[insert_pos]
+        cumulative_multiplier = np.concatenate([[0.0], np.cumsum(s_inc)])[insert_pos]
+        current_noise_std = base_noise_std * (1.0 + cumulative_multiplier)
+        
+        # 2. Vectorised thermal contact noise (independent draw per sample)
+        noise = cumulative_shift + self.rng.normal(0.0, current_noise_std)
+        
+        # 3. Frictional burst pops at each displacement event (vectorised per event)
+        burst_amp = 0.8
+        for ev_t in s_times:
+            t_rel = t - ev_t
+            burst_mask = (t_rel >= 0.0) & (t_rel < 0.3)
+            if np.any(burst_mask):
+                noise[burst_mask] += (burst_amp
+                    * np.sin(2.0 * np.pi * self.burst_frequency_hz * t[burst_mask])
+                    * np.exp(-t_rel[burst_mask] / 0.05))
                     
         return noise
 

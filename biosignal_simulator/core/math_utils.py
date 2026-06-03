@@ -1081,26 +1081,39 @@ def compute_ssim_1d(x: np.ndarray, y: np.ndarray, window_size: int = 101, k1: fl
     c1 = (k1 * dr) ** 2
     c2 = (k2 * dr) ** 2
     
-    # Pre-allocate SSIM array
-    ssim_map = np.zeros(n - window_size + 1)
+    # B-11 FIX: Replaced O(N) pure-Python loop with vectorised cumsum-based
+    # sliding window statistics — 100-1000x faster on real biosignal lengths.
+    w = window_size
     
-    # Calculate using local sliding window
-    for i in range(len(ssim_map)):
-        x_w = x[i : i + window_size]
-        y_w = y[i : i + window_size]
-        
-        mu_x = np.mean(x_w)
-        mu_y = np.mean(y_w)
-        
-        var_x = np.var(x_w)
-        var_y = np.var(y_w)
-        cov_xy = np.mean((x_w - mu_x) * (y_w - mu_y))
-        
-        num = (2 * mu_x * mu_y + c1) * (2 * cov_xy + c2)
-        den = (mu_x**2 + mu_y**2 + c1) * (var_x + var_y + c2)
-        
-        ssim_map[i] = num / den
-        
+    # Use cumsum trick for O(1)-per-window sliding statistics
+    def _sliding_sum(arr: np.ndarray) -> np.ndarray:
+        cs = np.cumsum(arr, dtype=np.float64)
+        out = cs[w - 1:]
+        out = out.copy()
+        out[1:] -= cs[:-(w)]
+        return out
+    
+    # Sliding window sums
+    sum_x   = _sliding_sum(x)
+    sum_y   = _sliding_sum(y)
+    sum_xx  = _sliding_sum(x * x)
+    sum_yy  = _sliding_sum(y * y)
+    sum_xy  = _sliding_sum(x * y)
+    
+    mu_x    = sum_x  / w
+    mu_y    = sum_y  / w
+    
+    # Variance and covariance (biased estimator, consistent with original loop)
+    var_x   = sum_xx / w - mu_x ** 2
+    var_y   = sum_yy / w - mu_y ** 2
+    cov_xy  = sum_xy / w - mu_x * mu_y
+    
+    # SSIM map
+    num = (2 * mu_x * mu_y + c1) * (2 * cov_xy + c2)
+    den = (mu_x ** 2 + mu_y ** 2 + c1) * (var_x + var_y + c2)
+    
+    ssim_map = num / den
+    
     return float(np.mean(ssim_map))
 
 

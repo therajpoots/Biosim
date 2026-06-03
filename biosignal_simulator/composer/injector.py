@@ -176,12 +176,14 @@ class ArtifactInjector:
                 original_rate = art.config.rate_hz
                 art.config.rate_hz = 1.0 / dur
                 
+            # B-03 FIX: create jitter RNG once outside the loop \u2014 was re-seeded per iteration
+            jitter_rng = np.random.default_rng(art.seed) if jitter > 0.0 else None
+            
             # Process each trigger timestamp
             for t_trig in inj['timestamps']:
                 # Apply random time jitter
                 if jitter > 0.0:
-                    rng = np.random.default_rng(art.seed)
-                    t_ev = t_trig + rng.normal(0.0, jitter)
+                    t_ev = t_trig + jitter_rng.normal(0.0, jitter)
                 else:
                     t_ev = t_trig
                     

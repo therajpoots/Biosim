@@ -260,11 +260,11 @@ class StochasticSchedule(BaseSchedule):
             return np.empty(0, dtype=np.float64)
             
         n_samples = len(t)
-        # Generate random walk steps
+        # B-02 FIX: do not zero steps[0] — that forced every walk to start flat.
+        # Instead prepend a 0 offset so cumsum starts at initial_level.
         steps = self.rng.normal(0.0, self.step_std, size=n_samples)
-        # Start at 0, integrate steps
-        steps[0] = 0.0
-        walk = np.cumsum(steps)
+        # walk[0] = 0 (no displacement yet), walk[i] = cumulative sum of steps[0..i-1]
+        walk = np.concatenate([[0.0], np.cumsum(steps[:-1])])
         
         # Add initial offset and keep strictly positive
         return np.abs(self.initial_level + walk)
@@ -366,6 +366,13 @@ class NoiseScheduler(BaseNoiseModel):
             return np.empty(0, dtype=np.float64)
             
         t = np.arange(n_samples) / fs
+        
+        # B-20 FIX: re-seed the noise model from a deterministic child seed before
+        # each call so repeated invocations produce identical output for a fixed seed.
+        if self.seed is not None:
+            self.noise_model.rng = np.random.default_rng(
+                np.random.SeedSequence(self.seed).spawn(1)[0]
+            )
         
         # Generate underlying raw noise and normalize to unit standard deviation (RMS)
         raw_noise = self.noise_model.generate(n_samples, fs)

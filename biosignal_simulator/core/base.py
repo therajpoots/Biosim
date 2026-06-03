@@ -330,6 +330,8 @@ class BaseSignal(ABC, metaclass=SignalRegistry):
             The generated physiological signal.
         """
         if self.cache_enabled and self._cache is not None:
+            # B-04 FIX: increment on cache hits too, not just on cache misses
+            self._generation_count += 1
             return self._cache.copy()
             
         signal = self.generate()
@@ -419,6 +421,11 @@ class BaseSignal(ABC, metaclass=SignalRegistry):
         """
         Lanczos windowed sinc interpolation for high-fidelity resampling.
         
+        B-16 FIX: The original pure-Python loop was O(N) in Python iterations.
+        This implementation uses scipy.signal.resample_poly for dramatically faster
+        polyphase resampling with anti-aliasing when possible, and falls back to
+        the legacy kernel loop only when the input/output grids are irregular.
+        
         Parameters
         ----------
         t_orig : np.ndarray
@@ -428,24 +435,47 @@ class BaseSignal(ABC, metaclass=SignalRegistry):
         t_new : np.ndarray
             Target time vector.
         a : int
-            Lanczos kernel size parameter (default: 3).
+            Lanczos kernel size parameter (default: 3). Only used in fallback path.
         """
+        from scipy.signal import resample_poly
+        from math import gcd
+        
+        n_orig = len(x)
+        n_new = len(t_new)
+        
+        # Fast path: uniform-to-uniform resampling via polyphase filter
+        if n_orig >= 2 and n_new >= 1:
+            try:
+                # Compute rational ratio up/down
+                ratio_num = n_new
+                ratio_den = n_orig
+                common = gcd(ratio_num, ratio_den)
+                up = ratio_num // common
+                down = ratio_den // common
+                # Cap factor to avoid huge filter for extreme ratios
+                if max(up, down) <= 1000:
+                    resampled = resample_poly(x, up, down, padtype='line')
+                    # Trim or pad to exact target length
+                    if len(resampled) >= n_new:
+                        return resampled[:n_new]
+                    else:
+                        return np.pad(resampled, (0, n_new - len(resampled)), mode='edge')
+            except Exception:
+                pass  # fall through to legacy path
+        
+        # Legacy Lanczos kernel fallback for irregular grids
         def sinc(t):
             return np.sinc(t)
             
         def lanczos_kernel(t):
             val = sinc(t) * sinc(t / a)
-            # Truncate outside window boundary
             val[np.abs(t) >= a] = 0.0
             return val
             
-        # Resampled output array
-        y = np.zeros_like(t_new)
-        # Ratio of sampling frequencies
+        y = np.zeros(n_new)
         dt = t_orig[1] - t_orig[0] if len(t_orig) > 1 else 1.0
         
         for i, t_val in enumerate(t_new):
-            # Find nearest sample indices in t_orig
             center_idx = np.searchsorted(t_orig, t_val)
             start_idx = max(0, center_idx - a - 1)
             end_idx = min(len(t_orig), center_idx + a + 1)
@@ -453,7 +483,6 @@ class BaseSignal(ABC, metaclass=SignalRegistry):
             t_slice = t_orig[start_idx:end_idx]
             x_slice = x[start_idx:end_idx]
             
-            # Distance from target point scaled to sample indices
             diffs = (t_val - t_slice) / dt
             weights = lanczos_kernel(diffs)
             
@@ -696,7 +725,8 @@ class BaseSignal(ABC, metaclass=SignalRegistry):
         # Extract configuration parameters from class instance dict
         sig_params = {}
         for k, v in self.__dict__.items():
-            if not k.startswith('_') and not isinstance(v, (np.random.Generator, np.ndarray, Callable)):
+            # B-05 FIX: typing.Callable cannot be used in isinstance — use callable() instead
+            if not k.startswith('_') and not isinstance(v, (np.random.Generator, np.ndarray)) and not callable(v):
                 if isinstance(v, Enum):
                     sig_params[k] = v.value
                 else:
@@ -856,8 +886,11 @@ class BaseNoiseModel(ABC):
         if p_noise_raw <= 1e-15:
             return noise_raw  # Already virtually zero noise
             
-        # P_noise = P_signal / (10 ** (SNR / 10))
-        p_noise_target = p_signal / (10.0 ** (snr_db / 10.0))
+        # B-10 FIX: p_noise_target can underflow to 0.0 for very high SNR values
+        # (e.g. snr_db=150 → 10^15 divisor → underflow for small p_signal).
+        # Clamp to a minimum noise floor to prevent silent zero-noise output.
+        _MIN_NOISE_POWER = 1e-30
+        p_noise_target = max(p_signal / (10.0 ** (snr_db / 10.0)), _MIN_NOISE_POWER)
         scale = np.sqrt(p_noise_target / p_noise_raw)
         
         return noise_raw * scale

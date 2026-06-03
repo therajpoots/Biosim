@@ -104,7 +104,7 @@ def test_signal_record_diagnostic_report(tmp_path):
     )
     
     # Test basic properties
-    assert record.duration_s == 1.99 # t[-1]
+    assert record.duration_s == 2.0  # n_samples / fs = 200 / 100 = 2.0 s (B-15 fix)
     assert record.n_channels == 1
     assert record.n_samples == 200
     assert record.sampling_rate == 100.0

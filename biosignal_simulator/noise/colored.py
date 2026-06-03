@@ -207,40 +207,39 @@ class ColoredNoise(BaseNoiseModel):
         Generate pink noise using the Voss-McCartney algorithm.
         
         Creates 1/f noise by summing random numbers updated at different frequencies.
+        
+        B-17 FIX: The original used a 2-column ping-pong buffer which caused
+        each octave value to be overwritten every other step regardless of the
+        intended update frequency, degrading spectral accuracy for large n_samples.
+        The correct implementation keeps one value per octave, updated only at
+        its power-of-two step interval.
         """
-        # Determine number of octaves based on sample count (max 16 to avoid excessive arrays)
-        num_octaves = min(16, int(np.ceil(np.log2(n_samples))))
+        # Determine number of octaves based on sample count (max 16)
+        num_octaves = min(16, int(np.ceil(np.log2(max(n_samples, 2)))))
         if num_octaves < 1:
             num_octaves = 1
             
-        # Allocate rows for state variables
-        # Row 0 is updated every step, Row 1 every 2 steps, Row k every 2^k steps
-        octave_values = self.rng.normal(0.0, 1.0, size=(num_octaves, 2))
+        # One state value per octave (updated at 2^k step intervals)
+        octave_values = self.rng.normal(0.0, 1.0, size=num_octaves)
+        current_sum = float(np.sum(octave_values))
         
-        # Accumulate output array
         output = np.zeros(n_samples)
         
-        # Current sum of all octave levels
-        current_sum = np.sum(octave_values[:, 0])
-        
         for idx in range(n_samples):
-            # Find the lowest bit that changes in index (identifies which octave to update)
-            # E.g., at steps 1, 3, 5: bit 0 changes
-            # at steps 2, 6: bit 1 changes
-            # at steps 4: bit 2 changes
-            # Using bitwise operations to find trailing zeros
-            if idx > 0:
-                diff = idx ^ (idx - 1)
-                octave_to_update = int(np.round(np.log2(diff)))
-                if octave_to_update < num_octaves:
-                    # Update this octave with a new white noise sample
-                    old_val = octave_values[octave_to_update, idx % 2]
-                    new_val = self.rng.normal(0.0, 1.0)
-                    octave_values[octave_to_update, idx % 2] = new_val
-                    current_sum += (new_val - old_val)
-                    
             output[idx] = current_sum
             
+            if idx + 1 < n_samples:
+                # Find the lowest-order bit that changes at step idx+1
+                # (trailing zeros of idx+1 tell us which octave to refresh)
+                step = idx + 1
+                # Number of trailing zeros == octave to update
+                octave_to_update = (step & -step).bit_length() - 1
+                if octave_to_update < num_octaves:
+                    old_val = octave_values[octave_to_update]
+                    new_val = self.rng.normal(0.0, 1.0)
+                    octave_values[octave_to_update] = new_val
+                    current_sum += (new_val - old_val)
+                    
         return output
 
 

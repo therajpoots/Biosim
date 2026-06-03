@@ -13,8 +13,9 @@ This module defines:
 
 import json
 import itertools
+import warnings
 from dataclasses import dataclass, field, asdict, fields
-from typing import Any, Callable, Type, TypeVar, Dict, List, Optional, Union
+from typing import Any, Callable, Type, TypeVar, Dict, List, Optional, Union, Tuple
 import numpy as np
 from biosignal_simulator.core.base import ParameterValidationError
 
@@ -503,9 +504,18 @@ class BaselineWanderConfig:
             raise ValueError("amplitude must be non-negative")
         if self.f_resp_hz <= 0.0:
             raise ValueError("f_resp_hz must be positive")
-        if not np.isclose(self.resp_fraction + self.drift_fraction + self.trend_fraction, 1.0):
-            # Normalize fractions
-            total = self.resp_fraction + self.drift_fraction + self.trend_fraction
+        total = self.resp_fraction + self.drift_fraction + self.trend_fraction
+        if not np.isclose(total, 1.0):
+            # B-18 FIX: warn the caller instead of silently mutating their values
+            warnings.warn(
+                f"BaselineWanderConfig fractions sum to {total:.6f} (expected 1.0). "
+                f"Automatically normalising: resp={self.resp_fraction/total:.4f}, "
+                f"drift={self.drift_fraction/total:.4f}, "
+                f"trend={self.trend_fraction/total:.4f}. "
+                "Pass fractions that sum to 1.0 to avoid this normalisation.",
+                UserWarning,
+                stacklevel=2,
+            )
             self.resp_fraction /= total
             self.drift_fraction /= total
             self.trend_fraction /= total
@@ -770,7 +780,7 @@ class PacketLossConfig:
             raise ValueError("loss_rate must be between 0.0 and 1.0")
         if self.burst_length_samples < 1:
             raise ValueError("burst_length_samples must be at least 1")
-        allowed_modes = {'zero', 'hold', 'linear'}
+        allowed_modes = {'zero', 'hold', 'linear', 'cubic', 'spline'}
         if self.interpolation_mode.lower() not in allowed_modes:
             raise ValueError(f"interpolation_mode must be one of {allowed_modes}, got {self.interpolation_mode}")
 
@@ -801,13 +811,31 @@ def sweep_config(config: T, param_name: str, values: List[Any]) -> List[T]:
     if not hasattr(config, param_name):
         raise ValueError(f"Configuration {config.__class__.__name__} has no attribute '{param_name}'")
     swept = []
+    errors: List[Tuple[Any, Exception]] = []
+    import copy
     for val in values:
         cfg_copy = copy.deepcopy(config)
         setattr(cfg_copy, param_name, val)
-        # Re-trigger validation
+        # Re-trigger validation, but don't abort the whole sweep on one bad value
         if hasattr(cfg_copy, '__post_init__'):
-            cfg_copy.__post_init__()
+            try:
+                cfg_copy.__post_init__()
+            except Exception as exc:
+                # B-12 FIX: collect error and skip this value rather than raising
+                warnings.warn(
+                    f"sweep_config: value {val!r} for '{param_name}' failed validation "
+                    f"and was skipped: {exc}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                errors.append((val, exc))
+                continue
         swept.append(cfg_copy)
+    if not swept and errors:
+        raise ValueError(
+            f"sweep_config: all {len(errors)} value(s) failed validation for '{param_name}'. "
+            f"First error: {errors[0][1]}"
+        )
     return swept
 
 
@@ -1136,10 +1164,22 @@ class BenchmarkSuite:
 
         results = []
         
-        # Mapping config classes
+        # B-07 FIX: use an explicit mapping for aliases (PinkNoise, BrownNoise, etc.)
+        # because __name__ + 'Config' doesn't work for subclasses of ColoredNoise.
+        _NOISE_CLASS_TO_CONFIG: Dict[str, str] = {
+            'ColoredNoise': 'ColoredNoiseConfig',
+            'PinkNoise': 'ColoredNoiseConfig',
+            'BrownNoise': 'ColoredNoiseConfig',
+            'BlueNoise': 'ColoredNoiseConfig',
+            'VioletNoise': 'ColoredNoiseConfig',
+        }
         import biosignal_simulator.core.config as config_module
         sig_config_cls_name = self.signal_class.__name__.replace('Generator', 'Config')
-        noise_config_cls_name = self.noise_class.__name__ + 'Config'
+        # Try the explicit alias map first, then fall back to __name__ + 'Config'
+        noise_cls_name = self.noise_class.__name__
+        noise_config_cls_name = _NOISE_CLASS_TO_CONFIG.get(
+            noise_cls_name, noise_cls_name + 'Config'
+        )
         
         sig_config_cls = getattr(config_module, sig_config_cls_name, None)
         noise_config_cls = getattr(config_module, noise_config_cls_name, None)

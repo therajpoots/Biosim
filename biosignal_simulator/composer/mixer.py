@@ -181,25 +181,43 @@ class SignalMixer:
             if isinstance(self.target_snr_db, BaseSchedule):
                 # Apply Dynamic SNR scheduling
                 # Wrap noise in a dummy generator to use DynamicSNRController
+                # B-06 FIX: DummyNoise must return a 1D slice for the channel
+                # requested by DynamicSNRController, not the full 2D array.
                 class DummyNoise(BaseNoiseModel):
                     def __init__(self, raw_n):
                         super().__init__()
                         self.raw_n = raw_n
+                        self._channel_idx = 0  # current channel being processed
                     def generate(self, n_s, f_s):
+                        if self.raw_n.ndim == 2:
+                            return self.raw_n[self._channel_idx]
                         return self.raw_n
                         
                 dummy = DummyNoise(total_additive_noise)
                 controller = DynamicSNRController(dummy, self.target_snr_db, window_duration_s=0.4)
-                scaled_noise = controller.apply(clean, fs)
                 
-                # Apportion scaling to individual components
-                p_total_raw = np.mean(np.square(total_additive_noise))
-                if p_total_raw > 1e-15:
-                    # Scaling envelope ratio
-                    scale_envelope = scaled_noise / (total_additive_noise + 1e-15)
-                    for name in noise_components:
-                        noise_components[name] *= scale_envelope
-                    total_additive_noise = scaled_noise
+                if clean.ndim == 2:
+                    scaled_noise = np.zeros_like(total_additive_noise)
+                    for c in range(clean.shape[0]):
+                        dummy._channel_idx = c
+                        scaled_noise[c] = controller.apply(clean[c], fs)
+                        scaled_noise[c] -= clean[c]  # controller returns clean+noise; extract noise
+                    # Apportion scaling to individual components
+                    p_total_raw = np.mean(np.square(total_additive_noise))
+                    if p_total_raw > 1e-15:
+                        scale_envelope = scaled_noise / (total_additive_noise + 1e-15)
+                        for name in noise_components:
+                            noise_components[name] *= scale_envelope
+                        total_additive_noise = scaled_noise
+                else:
+                    scaled_noise = controller.apply(clean, fs)
+                    # Apportion scaling to individual components
+                    p_total_raw = np.mean(np.square(total_additive_noise))
+                    if p_total_raw > 1e-15:
+                        scale_envelope = scaled_noise / (total_additive_noise + 1e-15)
+                        for name in noise_components:
+                            noise_components[name] *= scale_envelope
+                        total_additive_noise = scaled_noise
             else:
                 # Apply static SNR scaling
                 snr = float(self.target_snr_db)
@@ -287,6 +305,15 @@ class SignalMixer:
         # Primary signal identifier
         sig_type_name = self.signal_generator.__class__.__name__.replace('Generator', '').lower()
 
+        # B-14 FIX: BaseSchedule objects are not JSON-serialisable.
+        # Store a safe scalar or string representation instead.
+        if isinstance(self.target_snr_db, BaseSchedule):
+            serialisable_target_snr = repr(self.target_snr_db)
+        elif self.target_snr_db is None:
+            serialisable_target_snr = None
+        else:
+            serialisable_target_snr = float(self.target_snr_db)
+
         return SignalRecord(
             signal_type=sig_type_name,
             fs=fs,
@@ -297,7 +324,7 @@ class SignalMixer:
             signal_params=signal_params,
             noise_params=noise_params,
             snr_db=achieved_snr,
-            target_snr_db=self.target_snr_db,
+            target_snr_db=serialisable_target_snr,
             metadata=self.metadata
         )
 

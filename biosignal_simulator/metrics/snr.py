@@ -326,9 +326,12 @@ def compute_snr_wavelet(
     g = np.array([1.0, -1.0]) / np.sqrt(2.0)
     
     def dwt_step(sig):
-        # Convolve and downsample by 2
-        approx = np.convolve(sig, h, mode='same')[::2]
-        detail = np.convolve(sig, g, mode='same')[::2]
+        # B-19 FIX: Use 'valid' convolution with symmetric pre-padding instead of
+        # 'same' (zero-padding) to avoid boundary artifacts that inflate subband SNR.
+        pad_len = len(h) - 1  # = 1 for Haar
+        sig_padded = np.pad(sig, pad_len, mode='reflect')
+        approx = np.convolve(sig_padded, h, mode='valid')[::2]
+        detail = np.convolve(sig_padded, g, mode='valid')[::2]
         return approx, detail
         
     # Decompose clean and noisy signals
