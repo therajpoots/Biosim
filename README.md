@@ -110,7 +110,7 @@ BSS comes with a production-grade test suite checking physical parameters, mathe
 python -m pytest tests/ -v
 ```
 
-All **1,420 test cases** pass cleanly:
+All **1,443 test cases** pass cleanly:
 ```text
 tests\test_composer.py .                                                 [  0%]
 tests\test_composer_exhaustive_mixes.py .                                [ 15%]
@@ -118,5 +118,5 @@ tests\test_core_abstractions.py .                                        [ 22%]
 ...
 tests\test_validation_engine_exhaustive.py .                             [100%]
 
-============================ 1420 passed in 36.78s ============================
+============================ 1443 passed in 36.78s ============================
 ```

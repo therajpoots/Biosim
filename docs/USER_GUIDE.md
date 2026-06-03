@@ -418,22 +418,35 @@ Warnings list: []
 
 ---
 
-## 💻 7. CLI Reference Suite (`bss`)
+## 💻 7. CLI Reference Suite (`biosignal-sim`)
 
-The library includes a CLI binary script `bss` with six robust commands.
+The library includes a command-line interface script `biosignal-sim` (or executable via `python -m biosignal_simulator.cli`) with six robust subcommands.
 
 ```bash
-# Generate a YAML configuration layout
-bss generate --config setup.yaml --output record.h5
+# 1. Generate biosignals directly or via config
+biosignal-sim generate --type ecg --duration 10.0 --fs 250.0 --output simulated_record.npz
+# Or generate using a YAML configuration file
+biosignal-sim generate --config setup.yaml
 
-# Run integrity validation checks on raw CSV file
-bss validate --file subject_data.csv --html-report report.html
+# 2. Run integrity validation diagnostics
+biosignal-sim validate simulated_record.npz --html report.html
 
-# Sweep parameters to profile pipeline filter responses
-bss sweep --param heart_rate --values "60,80,100,120" --output benchmark.csv
+# 3. Sweep parameters to profile metrics/filter responses (values passed as a JSON list)
+biosignal-sim sweep --type ecg --param heart_rate --values "[60, 80, 100, 120]" --output benchmark.csv
 
-# Launch interactive terminal configuration wizard
-bss interactive
+# 4. Generate and save visual signal diagnostics/dashboards
+# Standard plot template
+biosignal-sim plot simulated_record.npz --output plot.png --style standard
+# Clinical 12-lead ECG paper template
+biosignal-sim plot simulated_record.npz --output ecg_grid.png --style ecg-12
+# Self-contained interactive HTML dashboard (offline zoom, toggle channels)
+biosignal-sim plot simulated_record.npz --output my_dashboard.html --style dashboard
+
+# 5. Print all available signal models, noise types, and exporters
+biosignal-sim list
+
+# 6. Launch interactive step-by-step terminal configuration wizard
+biosignal-sim interactive
 ```
 
 ---
