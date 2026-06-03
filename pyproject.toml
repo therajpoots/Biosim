@@ -9,6 +9,9 @@ description = "A classical signal processing library for generating synthetic ph
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+authors = [
+    { name = "Rana Talha Khalid", email = "talha.k.rajpoot@gmail.com" }
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -25,6 +28,11 @@ dependencies = [
     "matplotlib>=3.7.0",
     "pyyaml>=6.0.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/therajpoots/Biosim"
+Repository = "https://github.com/therajpoots/Biosim"
+Issues = "https://github.com/therajpoots/Biosim/issues"
 
 [project.optional-dependencies]
 dev = [
