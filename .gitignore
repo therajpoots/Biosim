@@ -116,3 +116,5 @@ Desktop.ini
 *.png
 !tests/
 !docs/images/
+!docs/images/*.png
+!docs/images/*.html
