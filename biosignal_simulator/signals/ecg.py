@@ -804,7 +804,7 @@ class BeatEventGenerator:
         # Rhythm-specific QRS parameters
         qrs_width = self.config.qrs_width
         qt_interval = 0.40
-        pr_interval = 0.16
+        pr_interval = self.config.pr_interval
 
         if self.rhythm == "rbbb":
             qrs_width = 0.13  # >120 ms
@@ -881,7 +881,7 @@ class BeatEventGenerator:
                 events.append(BeatEvent(
                     r_time=curr_t,
                     beat_type="normal",
-                    pr_interval=0.16,
+                    pr_interval=self.config.pr_interval,
                     qrs_width=self.config.qrs_width,
                     qt_interval=0.40,
                     st_level=0.0,
@@ -919,7 +919,7 @@ class BeatEventGenerator:
                 events.append(BeatEvent(
                     r_time=curr_t,
                     beat_type="normal",
-                    pr_interval=0.16,
+                    pr_interval=self.config.pr_interval,
                     qrs_width=self.config.qrs_width,
                     qt_interval=0.40,
                     st_level=0.0,
@@ -1044,7 +1044,7 @@ class BeatEventGenerator:
                 events.append(BeatEvent(
                     r_time=curr_t,
                     beat_type="dropped",
-                    pr_interval=0.16,
+                    pr_interval=self.config.pr_interval,
                     qrs_width=0.0,
                     qt_interval=0.0,
                     st_level=0.0,
@@ -1055,7 +1055,7 @@ class BeatEventGenerator:
                 events.append(BeatEvent(
                     r_time=curr_t,
                     beat_type="normal",
-                    pr_interval=0.16,  # Fixed PR in Mobitz II
+                    pr_interval=self.config.pr_interval,  # Fixed PR in Mobitz II
                     qrs_width=self.config.qrs_width,
                     qt_interval=0.40,
                     st_level=0.0,
@@ -1079,7 +1079,7 @@ class BeatEventGenerator:
 
         # Wenckebach parameters
         cycle_length = int(self.rng.choice([3, 4, 5]))  # Beats per cycle (last is dropped)
-        pr_base = 0.16
+        pr_base = self.config.pr_interval
         pr_increment = self.rng.uniform(0.020, 0.040)  # ms per beat
 
         beat_in_cycle = 0

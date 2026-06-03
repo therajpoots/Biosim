@@ -130,7 +130,12 @@ class CliCommandSuite:
             if sig_type == 'ecg':
                 cfg_cls = bss.ECGConfig
                 gen_cls = bss.ECGGenerator
-                params = {'heart_rate': args.hr, 'fs': args.fs, 'duration_s': args.duration}
+                params = {
+                    'heart_rate': args.hr,
+                    'fs': args.fs,
+                    'duration_s': args.duration,
+                    'rhythm_type': args.rhythm
+                }
             elif sig_type == 'eeg':
                 cfg_cls = bss.EEGConfig
                 gen_cls = bss.EEGGenerator
@@ -794,9 +799,9 @@ class CliCommandSuite:
 
 
 def main():
-    """CLI subcommands routing routing parsing entryway."""
+    """CLI subcommands routing and parsing entryway."""
     parser = argparse.ArgumentParser(description="BioSignal Platform CLI Engine")
-    subparsers = parser.add_interactives = parser.add_subparsers(dest="command", help="Available subcommands")
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
     
     # 1. generate subparser
     parser_gen = subparsers.add_parser("generate", help="Synthesize clean and contaminated physiological waveforms")
@@ -808,6 +813,14 @@ def main():
     parser_gen.add_argument("--snr", type=float, help="Target wideband signal SNR scale (dB)")
     parser_gen.add_argument("--output", "-o", help="Target output file path")
     parser_gen.add_argument("--config", "-c", help="Path to YAML script configuration file")
+    parser_gen.add_argument(
+        "--rhythm", "-r",
+        default="normal",
+        choices=["normal", "bradycardia", "tachycardia", "afib", "aflutter",
+                 "pvc", "pac", "vtach", "vfib", "av_block", "wenckebach",
+                 "complete_av_block", "rbbb", "lbbb", "wpw", "long_qt", "stemi", "ischemia"],
+        help="Cardiac rhythm / arrhythmia type (default: normal)"
+    )
     
     # 2. validate subparser
     parser_val = subparsers.add_parser("validate", help="Execute signal integrity and biological verification")
@@ -816,7 +829,7 @@ def main():
     parser_val.add_argument("--html", help="Generate companion styled HTML quality validation report")
     
     # 3. sweep subparser
-    parser_swp = subparsers.add_parser("sweep", help="Perform parameter grid sweep sweep experiments")
+    parser_swp = subparsers.add_parser("sweep", help="Perform parameter grid sweep experiments")
     parser_swp.add_argument("--type", "-t", default="ecg", choices=["ecg", "eeg", "emg"], help="Override signal class type")
     parser_swp.add_argument("--param", "-p", default="heart_rate", help="Parameter variable name to sweep (e.g. heart_rate, snr)")
     parser_swp.add_argument("--values", "-v", default="[60, 80, 100, 120]", help="JSON formatted values list to sweep")

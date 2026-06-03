@@ -25,7 +25,9 @@ Mathematical Formulations:
 import os
 import json
 import datetime
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    from biosignal_simulator.core.record import SignalRecord
 import numpy as np
 from scipy import signal as sp_signal
 
@@ -682,7 +684,7 @@ def validate_signal(signal: np.ndarray, fs: float, expected_type: str) -> Valida
     return ValidationReport(is_valid=is_valid, warnings=warnings, metrics=metrics)
 
 
-def generate_validation_report_html(record: SignalRecord, report: ValidationReport, path: str) -> None:
+def generate_validation_report_html(record: "SignalRecord", report: ValidationReport, path: str) -> None:
     """
     Generate a beautifully styled HTML quality validation report.
     

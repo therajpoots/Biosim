@@ -14,7 +14,7 @@ This module defines:
 import json
 import itertools
 from dataclasses import dataclass, field, asdict, fields
-from typing import Any, Type, TypeVar, Dict, List, Optional, Union
+from typing import Any, Callable, Type, TypeVar, Dict, List, Optional, Union
 import numpy as np
 from biosignal_simulator.core.base import ParameterValidationError
 
@@ -107,7 +107,11 @@ class ECGConfig:
         if self.lead_type.lower() not in allowed_lead_types:
             errors.append(f"lead_type must be one of {allowed_lead_types}, got {self.lead_type}")
             
-        allowed_rhythms = {'normal', 'afib', 'pvc', 'vtach', 'bradycardia', 'tachycardia', 'av_block'}
+        allowed_rhythms = {
+            'normal', 'bradycardia', 'tachycardia', 'afib', 'aflutter',
+            'pvc', 'pac', 'vtach', 'vfib', 'av_block', 'wenckebach',
+            'complete_av_block', 'rbbb', 'lbbb', 'wpw', 'long_qt', 'stemi', 'ischemia'
+        }
         if self.rhythm_type.lower() not in allowed_rhythms:
             errors.append(f"rhythm_type must be one of {allowed_rhythms}, got {self.rhythm_type}")
 

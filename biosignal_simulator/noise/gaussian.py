@@ -93,7 +93,19 @@ class GaussianNoise(BaseNoiseModel):
             Alternative parameters passed to GaussianNoiseConfig if config is None.
         """
         if config is None:
-            config = GaussianNoiseConfig(**kwargs)
+            try:
+                config = GaussianNoiseConfig(**kwargs)
+            except TypeError as e:
+                valid_keys = {'std', 'mean', 'seed'}
+                invalid_keys = set(kwargs.keys()) - valid_keys
+                if invalid_keys:
+                    raise TypeError(
+                        f"GaussianNoise got unexpected keyword argument(s): {invalid_keys}. "
+                        f"Accepted config arguments are: {valid_keys}. "
+                        "Note: SNR scaling is set at the SignalMixer level via 'target_snr_db', "
+                        "not at the noise model level."
+                    ) from e
+                raise e
         else:
             validate_config(config)
             
