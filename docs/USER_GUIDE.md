@@ -44,27 +44,24 @@ pip install -e ".[io,viz,yaml,dev]"
 ### McSharry 12-Lead Electrocardiogram (ECG)
 Generates ECG cycles using the McSharry ECGSYN dynamical ODE model in 3D VCG dipole coordinates, projected to standard 12-lead grids using the Dower Matrix. Supports HRV (Heart Rate Variability) using a rolling Gaussian distribution, ectopic Premature Ventricular Contractions (PVCs), and Atrial Fibrillation (AFib) f-wave oscillations.
 
-#### Code Example: 12-Lead ECG with PVCs & AFib
+#### Code Example: 12-Lead ECG with AFib Rhythm
 ```python
 import numpy as np
-from biosignal_simulator import ECGGenerator, ECGConfig
+from biosignal_simulator import ECGGenerator, ECGConfig, SignalMixer
 
-# Configure an ECG signal with Atrial Fibrillation (AFib) and Ventricular Ectopy (PVCs)
+# Configure an ECG signal with Atrial Fibrillation (AFib)
 config = ECGConfig(
     fs=500.0,
     duration_s=10.0,
     heart_rate=80.0,
-    amplitude=1.2,
-    hrv_std=0.04,                # Heart rate variability standard deviation
-    pathology="afib",            # Activate AFib (suppressed P-waves, added f-waves)
-    pvc_indices=[1200, 3100],    # Injected PVC events at specific sample indices
-    pvc_coupling_interval=0.28,  # Time coupling between normal QRS and PVC
-    pvc_amplitude_factor=1.8,    # PVC QRS amplitude scaling factor
-    lead_system="12_lead"        # Generate standard 12-lead projection matrix
+    qrs_amplitude=1.2,
+    hr_variability_std=0.04,     # Heart rate variability standard deviation
+    rhythm_type="afib",          # Activate AFib (suppressed P-waves, added f-waves)
+    lead_type="12lead"           # Generate standard 12-lead projection matrix
 )
 
 generator = ECGGenerator(config)
-record = generator.generate()
+record = SignalMixer(signal_generator=generator, noise_models=[]).mix()
 
 print("--- ECG Generation Output ---")
 print(f"Signal Record Type: {record.signal_type}")
@@ -90,30 +87,27 @@ Simulates resting-state EEG (Delta, Theta, Alpha, Beta, Gamma bands) modeled as 
 #### Code Example: Multi-channel EEG during N2 Sleep Stage
 ```python
 import numpy as np
-from biosignal_simulator import EEGGenerator, EEGConfig
+from biosignal_simulator import EEGGenerator, EEGConfig, SignalMixer
 
-# Configure N2 sleep state with spindles, K-complexes, and 4-channel spatial correlation
-cov_matrix = np.array([
+# Configure N2 sleep state with 4-channel correlation matrix
+corr_matrix = [
     [1.0, 0.6, 0.4, 0.2],
     [0.6, 1.0, 0.5, 0.3],
     [0.4, 0.5, 1.0, 0.6],
     [0.2, 0.3, 0.6, 1.0]
-])
+]
 
 config = EEGConfig(
     fs=256.0,
     duration_s=8.0,
     n_channels=4,
-    spatial_covariance=cov_matrix,
-    brain_state="n2_sleep",              # Select N2 sleep stage
-    spindle_frequency=13.5,              # EEG sleep spindle burst frequency (Hz)
-    spindle_density=0.15,                # Bursts per second
-    k_complex_amplitude=-150.0,          # Biphasic K-complex amplitude (uV)
-    k_complex_density=0.08               # Complexes per second
+    corr_matrix=corr_matrix,
+    state="n2_sleep",              # Select N2 sleep stage
+    amplitude_uv=80.0
 )
 
 generator = EEGGenerator(config)
-record = generator.generate()
+record = SignalMixer(signal_generator=generator, noise_models=[]).mix()
 
 print("--- EEG N2 Sleep Generation Output ---")
 print(f"Clean EEG Shape: {record.clean.shape}")
@@ -136,35 +130,34 @@ Models intramuscular (single-channel needle) and surface (multi-channel HD-EMG) 
 
 #### Code Example: EMG Fatigue Simulation
 ```python
-from biosignal_simulator import EMGGenerator, EMGConfig
+from biosignal_simulator import EMGGenerator, EMGConfig, SignalMixer
 
-# Configure high-density surface EMG with dynamic muscle fatigue
+# Configure Parkinsonian tremor EMG pathology
 config = EMGConfig(
     fs=2000.0,
     duration_s=5.0,
-    n_channels=2,
-    mode="surface",
-    mean_firing_rate=18.0,            # Firing rate of motor units (Hz)
-    fatigue_factor=0.35,              # Induces a downward drift in spectral frequencies
-    recruitment_slope=0.8,            # Dynamic MUAP recruitment rate
-    pathology="none"
+    emg_type="surface",
+    pathology="parkinsons_tremor",
+    envelope_type="burst",
+    burst_rate_hz=5.0,
+    amplitude_uv=300.0
 )
 
 generator = EMGGenerator(config)
-record = generator.generate()
+record = SignalMixer(signal_generator=generator, noise_models=[]).mix()
 
-print("--- EMG Surface Fatigue Output ---")
+print("--- EMG Tremor Simulation Output ---")
 print(f"EMG Shape: {record.clean.shape}")
 print(f"Sampling Frequency: {record.fs} Hz")
-print(f"Fatigue Factor Applied: {config.fatigue_factor}")
+print(f"EMG Type: {config.emg_type} | Pathology: {config.pathology}")
 ```
 
 #### Expected Console Output
 ```text
---- EMG Surface Fatigue Output ---
-EMG Shape: (2, 10000)
+--- EMG Tremor Simulation Output ---
+EMG Shape: (10000,)
 Sampling Frequency: 2000.0 Hz
-Fatigue Factor Applied: 0.35
+EMG Type: surface | Pathology: parkinsons_tremor
 ```
 
 ---
@@ -172,23 +165,22 @@ Fatigue Factor Applied: 0.35
 ### Cardiovascular Photoplethysmography (PPG)
 Generates PPG waveforms (IR and Red channels) representing blood volume changes during cardiac cycles. Each cycle uses a 3-Gaussian mixture (systolic peak, dicrotic notch, diastolic peak). Supports Respiratory Sinus Arrhythmia (RSA) amplitude modulation and venous baseline drift.
 
-#### Code Example: Dual-Channel PPG with RSA
+#### Code Example: PPG with Respiration Modulation
 ```python
-from biosignal_simulator import PPGGenerator, PPGConfig
+from biosignal_simulator import PPGGenerator, PPGConfig, SignalMixer
 
 config = PPGConfig(
     fs=125.0,
     duration_s=15.0,
     heart_rate=72.0,
-    systolic_amplitude=1.0,
-    dicrotic_notch_amplitude=0.35,
-    rsa_modulation_index=0.15,         # Modulate PPG amplitude by simulated respiration
-    venous_drift_frequency=0.08,       # Low frequency venous blood drift
-    venous_drift_amplitude=0.12
+    systolic_fraction=0.25,
+    dicrotic_fraction=0.45,
+    resp_modulation=0.15,         # Modulate PPG amplitude by simulated respiration
+    resp_rate=0.25
 )
 
 generator = PPGGenerator(config)
-record = generator.generate()
+record = SignalMixer(signal_generator=generator, noise_models=[]).mix()
 
 print("--- PPG Waveform Output ---")
 print(f"PPG Output Shape: {record.clean.shape}")
@@ -198,7 +190,7 @@ print(f"Signal Type: {record.signal_type}")
 #### Expected Console Output
 ```text
 --- PPG Waveform Output ---
-PPG Output Shape: (2, 1875)
+PPG Output Shape: (1875,)
 Signal Type: ppg
 ```
 
@@ -210,25 +202,28 @@ Signal Type: ppg
 
 #### Code Example: Breathing and Skin Conductance Setup
 ```python
-from biosignal_simulator import EDAGenerator, EDAConfig, RespGenerator, RespConfig
+from biosignal_simulator import EDAGenerator, EDAConfig, RespGenerator, RespConfig, SignalMixer
 
 # Setup EDA (GSR)
-eda_config = EDAConfig(fs=64.0, duration_s=10.0, tonic_level=5.0, phasic_rate=0.4, scr_amplitude=0.8)
-eda_record = EDAGenerator(eda_config).generate()
+eda_config = EDAConfig(fs=64.0, duration_s=10.0, scl_amplitude_us=5.0, event_rate_hz=0.4)
+eda_generator = EDAGenerator(eda_config)
+eda_record = SignalMixer(signal_generator=eda_generator, noise_models=[]).mix()
 
 # Setup Respiration with Cheyne-Stokes pattern
-resp_config = RespConfig(fs=50.0, duration_s=60.0, breathing_rate=12.0, pattern="cheyne_stokes")
-resp_record = RespGenerator(resp_config).generate()
+resp_config = RespConfig(fs=50.0, duration_s=60.0, resp_rate_hz=0.2)
+resp_config.pattern = "cheyne_stokes"
+resp_generator = RespGenerator(resp_config)
+resp_record = SignalMixer(signal_generator=resp_generator, noise_models=[]).mix()
 
 print("--- EDA & Respiration Output ---")
-print(f"EDA Shape: {eda_record.clean.shape} | Mean SCL: {eda_record.signal_params['mean_scl']:.2f} uS")
-print(f"Respiration Shape: {resp_record.clean.shape} | Pattern: {resp_config.pattern}")
+print(f"EDA Shape: {eda_record.clean.shape} | Mean SCL: {eda_record.clean.mean():.2f} uS")
+print(f"Respiration Shape: {resp_record.clean.shape} | Pattern: {getattr(resp_config, 'pattern', 'normal')}")
 ```
 
 #### Expected Console Output
 ```text
 --- EDA & Respiration Output ---
-EDA Shape: (640,) | Mean SCL: 5.12 uS
+EDA Shape: (640,) | Mean SCL: 5.00 uS
 Respiration Shape: (3000,) | Pattern: cheyne_stokes
 ```
 
@@ -264,14 +259,14 @@ from biosignal_simulator import (
     SignalMixer, NoiseScheduler, RampSchedule
 )
 
-# 1. Generate clean ECG signal
-clean_record = ECGGenerator(ECGConfig(fs=250, duration_s=15)).generate()
+# 1. Instantiate ECG generator
+ecg_generator = ECGGenerator(ECGConfig(fs=250, duration_s=15))
 
 # 2. Configure non-stationary noise (ramping up from 0 to 0.5 amplitude)
-pink_noise = ColoredNoise(exponent_alpha=1.0)
+pink_noise = ColoredNoise(exponent=1.0)
 scheduler = NoiseScheduler(
     noise_model=pink_noise,
-    envelope=RampSchedule(start_val=0.0, end_val=0.5, duration_s=15.0)
+    schedule=RampSchedule(control_times=[0.0, 15.0], levels=[0.0, 0.5])
 )
 
 # 3. Add constant powerline noise
@@ -279,23 +274,23 @@ mains_hum = PowerlineNoise(f_line_hz=50.0, amplitude=0.08)
 
 # 4. Mix everything targeting a composite Global SNR of 12 dB
 mixer = SignalMixer(
-    signal=clean_record,
-    noises=[scheduler, mains_hum],
+    signal_generator=ecg_generator,
+    noise_models=[scheduler, mains_hum],
     target_snr_db=12.0
 )
 mixed_record = mixer.mix()
 
 print("--- Composited Signal Output ---")
-print(f"Clean Power: {mixed_record.metadata['clean_power']:.4f}")
-print(f"Noisy Power: {mixed_record.metadata['noisy_power']:.4f}")
+print(f"Clean RMS Amplitude: {mixed_record.metadata['diagnostics']['rms_amplitude']:.4f}")
+print(f"Noise Error RMS: {mixed_record.metadata['diagnostics']['error_rms']:.4f}")
 print(f"Calculated SNR: {mixed_record.snr_db:.2f} dB")
 ```
 
 #### Expected Console Output
 ```text
 --- Composited Signal Output ---
-Clean Power: 0.1256
-Noisy Power: 0.1335
+Clean RMS Amplitude: 0.3544
+Noise Error RMS: 0.0890
 Calculated SNR: 12.00 dB
 ```
 
@@ -309,11 +304,12 @@ BSS implements high-performance, symmetrical importers and exporters. You can wr
 ```python
 import os
 import tempfile
-from biosignal_simulator import ECGGenerator, ECGConfig
+from biosignal_simulator import ECGGenerator, ECGConfig, SignalMixer
 from biosignal_simulator.io import BiosignalExporter, BiosignalImporter
 
-# Generate 3-channel ECG record
-record = ECGGenerator(ECGConfig(fs=250, duration_s=5, lead_system="12_lead")).generate()
+# Generate 12-lead ECG record
+generator = ECGGenerator(ECGConfig(fs=250, duration_s=5, lead_type="12lead"))
+record = SignalMixer(signal_generator=generator, noise_models=[]).mix()
 
 with tempfile.TemporaryDirectory() as tmpdir:
     edf_path = os.path.join(tmpdir, "subject_ecg.edf")
@@ -346,19 +342,18 @@ Evaluate signal quality and distortion compared to clean baselines using multipl
 
 ```python
 import numpy as np
-from biosignal_simulator.metrics.snr import compute_segmental_snr
-from biosignal_simulator.metrics.distortion import compute_ssim_1d, compute_prd
+from biosignal_simulator.metrics import compute_snr_segmental, compute_prd, compute_ssim_1d
 
 clean = np.sin(2 * np.pi * 10.0 * (np.arange(1000) / 100.0))
 noisy = clean + 0.35 * np.random.randn(1000)
 
 # Calculate Segmental SNR, PRD (Percent Residual Difference) and 1D SSIM
-seg_snr = compute_segmental_snr(clean, noisy, segment_length=100)
+seg_snr = compute_snr_segmental(clean, noisy, fs=100.0, segment_s=1.0)
 prd_val = compute_prd(clean, noisy)
 ssim_val = compute_ssim_1d(clean, noisy)
 
 print("--- Signal Processing Metrics ---")
-print(f"Segmental SNR: {seg_snr:.2f} dB")
+print(f"Segmental SNR: {np.mean(seg_snr):.2f} dB")
 print(f"Percent Residual Difference (PRD): {prd_val:.2f}%")
 print(f"Structural Similarity (SSIM 1D): {ssim_val:.4f}")
 ```
@@ -381,25 +376,24 @@ BSS includes Pan-Tompkins QRS peak detection, relative power calculations, and i
 from biosignal_simulator import ECGGenerator, ECGConfig
 from biosignal_simulator.utils.validation import validate_signal
 
-record = ECGGenerator(ECGConfig(fs=500, duration_s=10, heart_rate=75)).generate()
+generator = ECGGenerator(ECGConfig(fs=500, duration_s=10, heart_rate=75))
+signal_array = generator.generate()
 
 # Run physiological verification checks and generate diagnostic parameters
-report = validate_signal(record)
+report = validate_signal(signal_array, fs=500.0, expected_type="ecg")
 
 print("--- Physiological Verification ---")
-print(f"Detected Heart Rate: {report.metrics['heart_rate']:.1f} BPM")
-print(f"QRS Sensitivity Score: {report.metrics['qrs_sensitivity']:.3f}")
-print(f"Signal flatline issues: {report.integrity['has_flatline']}")
-print(f"Signal clipping issues: {report.integrity['has_clipping']}")
+print(f"Detected Heart Rate: {report.metrics['heart_rate_bpm']:.1f} BPM")
+print(f"Signal is clinically valid: {report.is_valid}")
+print(f"Warnings list: {report.warnings}")
 ```
 
 #### Expected Console Output
 ```text
 --- Physiological Verification ---
-Detected Heart Rate: 74.8 BPM
-QRS Sensitivity Score: 1.000
-Signal flatline issues: False
-Signal clipping issues: False
+Detected Heart Rate: 74.5 BPM
+Signal is clinically valid: True
+Warnings list: []
 ```
 
 ---
@@ -432,6 +426,7 @@ This script brings everything together: configuring a signal, adding scheduled n
 import os
 import numpy as np
 import biosignal_simulator as bss
+from biosignal_simulator.utils.validation import validate_signal
 
 def main():
     print("====================================================")
@@ -443,43 +438,43 @@ def main():
         fs=250.0,
         duration_s=8.0,
         heart_rate=72.0,
-        amplitude=1.0,
-        hrv_std=0.03
+        qrs_amplitude=1.0,
+        hr_variability_std=0.03
     )
-    clean_record = bss.ECGGenerator(ecg_config).generate()
+    ecg_generator = bss.ECGGenerator(ecg_config)
     
     # 2. Noise Setup
     mains_noise = bss.PowerlineNoise(f_line_hz=50.0, amplitude=0.05, n_harmonics=3)
-    pink_noise = bss.ColoredNoise(exponent_alpha=1.0)
+    pink_noise = bss.ColoredNoise(exponent=1.0)
     
     # Ramping Pink Noise Envelope
     scheduled_pink = bss.NoiseScheduler(
         noise_model=pink_noise,
-        envelope=bss.RampSchedule(start_val=0.01, end_val=0.3, duration_s=8.0)
+        schedule=bss.RampSchedule(control_times=[0.0, 8.0], levels=[0.01, 0.3])
     )
     
     # 3. Transient Motion Artifact Injection (around the 4th second)
-    motion_config = bss.MotionArtifactConfig(
-        amplitude=1.5,
-        displacements_per_sec=0.5,
-        duration_s=1.5
-    )
-    injector = bss.ArtifactInjector(
-        artifact_generator=bss.MotionArtifact(motion_config),
-        onset_s=4.0,
+    motion_noise = bss.MotionArtifact(lf_amplitude=1.5, enable_lf=True, seed=42)
+    injector = bss.ArtifactInjector()
+    injector.add(
+        artifact=motion_noise,
+        timestamps_s=[4.0],
         duration_s=1.5
     )
     
-    # 4. Mixing clean ECG, scheduled Pink noise, constant Mains hum, and motion artifact
+    # 4. Mixing clean ECG, scheduled Pink noise, and constant Mains hum
     mixer = bss.SignalMixer(
-        signal=clean_record,
-        noises=[scheduled_pink, mains_noise, injector],
+        signal_generator=ecg_generator,
+        noise_models=[scheduled_pink, mains_noise],
         target_snr_db=15.0
     )
     mixed_record = mixer.mix()
     
+    # Apply the transient motion artifact post-hoc
+    mixed_record.noisy = injector.apply(mixed_record.noisy, mixed_record.fs)
+    
     # 5. Physiological and Engineering Validation
-    report = bss.utils.validation.validate_signal(mixed_record)
+    report = validate_signal(mixed_record.noisy, mixed_record.fs, mixed_record.signal_type)
     
     # 6. Symmetrical Export
     export_path = "pipeline_output.edf"
@@ -488,8 +483,8 @@ def main():
     # Print Pipeline Summary
     print("--- Pipeline Summary ---")
     print(f"Target SNR: 15.00 dB | Calculated SNR: {mixed_record.snr_db:.2f} dB")
-    print(f"Pan-Tompkins Heart Rate Estimate: {report.metrics['heart_rate']:.1f} BPM")
-    print(f"Signal Integrity Checks: {'PASSED' if not report.has_errors else 'WARNINGS FOUND'}")
+    print(f"Pan-Tompkins Heart Rate Estimate: {report.metrics['heart_rate_bpm']:.1f} BPM")
+    print(f"Signal Integrity Checks: {'PASSED' if report.is_valid else 'WARNINGS FOUND'}")
     print(f"Lightweight EDF Binary Exported: {export_path} ({os.path.getsize(export_path)} bytes)")
     
     # Clean up file
@@ -508,7 +503,7 @@ if __name__ == '__main__':
 
 --- Pipeline Summary ---
 Target SNR: 15.00 dB | Calculated SNR: 15.00 dB
-Pan-Tompkins Heart Rate Estimate: 71.9 BPM
-Signal Integrity Checks: PASSED
-Lightweight EDF Binary Exported: pipeline_output.edf (10624 bytes)
+Pan-Tompkins Heart Rate Estimate: 71.7 BPM
+Signal Integrity Checks: WARNINGS FOUND
+Lightweight EDF Binary Exported: pipeline_output.edf (17280 bytes)
 ```

@@ -70,7 +70,7 @@ from biosignal_simulator.composer import (
     PeriodicSchedule,
     ArtifactInjector
 )
-from biosignal_simulator.io import BiosignalExporter
+from biosignal_simulator.io import BiosignalExporter, BiosignalImporter
 from biosignal_simulator.utils import (
     plot_record,
     plot_psd_comparison,
@@ -78,6 +78,9 @@ from biosignal_simulator.utils import (
     plot_snr_sweep,
     plot_filter_response
 )
+
+list_generators = BaseSignal.list_generators
+get_generator = BaseSignal.get_generator
 
 try:
     from importlib.metadata import version as _version

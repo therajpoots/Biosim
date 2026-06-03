@@ -22,17 +22,22 @@ Generate a clean PPG signal, contaminate it with a ramping pink noise drift and 
 ```python
 import biosignal_simulator as bss
 
-# 1. Generate clean PPG signal with realistic dicrotic notch
-ppg = bss.PPGGenerator(bss.PPGConfig(fs=125.0, duration_s=10.0, heart_rate=72.0)).generate()
+# 1. Configure and instantiate PPG generator
+ppg_config = bss.PPGConfig(fs=125.0, duration_s=10.0, heart_rate=72.0)
+ppg_generator = bss.PPGGenerator(ppg_config)
 
 # 2. Schedule a ramping Pink (1/f) noise drift
 pink_noise = bss.NoiseScheduler(
-    noise_model=bss.ColoredNoise(exponent_alpha=1.0),
-    envelope=bss.RampSchedule(start_val=0.0, end_val=0.4, duration_s=10.0)
+    noise_model=bss.ColoredNoise(exponent=1.0),
+    schedule=bss.RampSchedule(control_times=[0.0, 10.0], levels=[0.0, 0.4])
 )
 
 # 3. Mix targeting exactly 12 dB SNR
-mixed = bss.SignalMixer(signal=ppg, noises=[pink_noise], target_snr_db=12.0).mix()
+mixed = bss.SignalMixer(
+    signal_generator=ppg_generator,
+    noise_models=[pink_noise],
+    target_snr_db=12.0
+).mix()
 
 # 4. Symmetrically export to European Data Format (EDF)
 bss.BiosignalExporter.export_edf(mixed, "ppg_stress_test.edf")

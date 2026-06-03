@@ -34,18 +34,22 @@ Interactive Demo: https://colab.research.google.com/github/therajpoots/Biosim/bl
 ```python
 import biosignal_simulator as bss
 
-# 1. Generate clean ECG
-clean_signal = bss.ECGGenerator(bss.ECGConfig(fs=250.0, duration_s=10.0)).generate()
+# 1. Instantiate ECG generator
+ecg_generator = bss.ECGGenerator(bss.ECGConfig(fs=250.0, duration_s=10.0))
 
 # 2. Add a ramping Pink (1/f) Noise envelope (simulating electrode contact drift)
-pink_noise = bss.ColoredNoise(exponent_alpha=1.0)
+pink_noise = bss.ColoredNoise(exponent=1.0)
 scheduled_noise = bss.NoiseScheduler(
     noise_model=pink_noise,
-    envelope=bss.RampSchedule(start_val=0.0, end_val=0.3, duration_s=10.0)
+    schedule=bss.RampSchedule(control_times=[0.0, 10.0], levels=[0.0, 0.3])
 )
 
 # 3. Mix targeting exactly 15 dB SNR
-mixed = bss.SignalMixer(signal=clean_signal, noises=[scheduled_noise], target_snr_db=15.0).mix()
+mixed = bss.SignalMixer(
+    signal_generator=ecg_generator,
+    noise_models=[scheduled_noise],
+    target_snr_db=15.0
+).mix()
 
 # 4. Symmetrically export to clinical EDF format
 bss.BiosignalExporter.export_edf(mixed, "subject_01.edf")
