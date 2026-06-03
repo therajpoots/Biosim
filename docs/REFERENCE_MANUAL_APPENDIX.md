@@ -1237,6 +1237,11 @@ Any number. The SNR controller normalizes the sum of all noise sources to the ta
 
 ## Appendix E — Changelog & Version History
 
+### v0.1.1 (Current Release)
+- **README & Link Fixes**: Corrected relative links to documents and images to use absolute GitHub paths, resolving 404 errors on PyPI registry pages.
+- **__version__ Integration**: Added package-level `__version__` property to `biosignal_simulator`.
+- **Interactive Google Colab Demo**: Created `demo.ipynb` notebook integration.
+
 ### v0.1.0 (Initial Release)
 - **Signal Generators**: ECG (12-lead, 18 arrhythmias), EEG (7 brain states), EMG (6 pathologies), PPG, EDA, Respiration.
 - **Noise Models**: GaussianNoise, ColoredNoise family (Pink/Brown/Blue/Violet), BaselineWander, PowerlineNoise, MotionArtifact, ElectrodeNoise, EMGArtifact, ImpulseNoise, QuantizationNoise, CrosstalkNoise.

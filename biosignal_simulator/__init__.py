@@ -78,3 +78,10 @@ from biosignal_simulator.utils import (
     plot_snr_sweep,
     plot_filter_response
 )
+
+try:
+    from importlib.metadata import version as _version
+    __version__ = _version("biosignal-simulator")
+except Exception:
+    __version__ = "0.1.1"
+

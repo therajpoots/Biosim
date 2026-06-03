@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "biosignal-simulator"
-version = "0.1.0"
+version = "0.1.1"
 description = "A classical signal processing library for generating synthetic physiological signals with realistic noise."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,6 +32,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/therajpoots/Biosim"
 Repository = "https://github.com/therajpoots/Biosim"
+Documentation = "https://github.com/therajpoots/Biosim#%F0%9F%93%96-comprehensive-documentation"
 Issues = "https://github.com/therajpoots/Biosim/issues"
 
 [project.optional-dependencies]

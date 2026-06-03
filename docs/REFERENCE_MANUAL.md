@@ -1,6 +1,6 @@
 # BioSignal Simulator — Complete Reference Manual
 
-> **Version**: 0.1.0 | **Python**: ≥ 3.9 | **License**: MIT
+> **Version**: 0.1.1 | **Python**: ≥ 3.9 | **License**: MIT
 >
 > `pip install biosignal-simulator`
 
@@ -166,7 +166,7 @@ pip install -e ".[dev]"
 
 ```python
 import biosignal_simulator as bss
-print(bss.__version__)         # "0.1.0"
+print(bss.__version__)         # "0.1.1"
 print(bss.list_generators())   # ['ecg', 'eeg', 'emg', 'ppg', 'eda', 'resp']
 ```
 
