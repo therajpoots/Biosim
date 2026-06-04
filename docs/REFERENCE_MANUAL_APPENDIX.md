@@ -1237,7 +1237,10 @@ Any number. The SNR controller normalizes the sum of all noise sources to the ta
 
 ## Appendix E — Changelog & Version History
 
-### v0.1.2 (Current Release)
+### v0.1.3 (Current Release)
+- **PyPI Release Version Bump**: Bumped version to `0.1.3` to resolve package upload conflicts due to tag collision and release mismatches.
+
+### v0.1.2
 - **Visualization NameErrors**: Added missing `scipy.signal` imports in the visualization engine.
 - **CLI Fixes & Wizard Enhancements**: Resolved NameErrors in the plotting command routing, resolved TypeErrors on unexpected config arguments, and mapped the interactive wizard prompts to actual config keys.
 - **Expanded Test Coverage**: Created comprehensive new CLI and visualization test suites, raising `cli.py` coverage to 68% and `visualization.py` coverage to 94% with 1,443 total passing tests.
